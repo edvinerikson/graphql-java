@@ -40,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
+import static graphql.Directives.DeferDirective;
 import static graphql.ExecutionInput.newExecutionInput;
 import static graphql.execution.instrumentation.dataloader.DataLoaderDispatcherInstrumentationOptions.newOptions;
 import static graphql.schema.idl.TypeRuntimeWiring.newTypeWiring;
@@ -255,6 +256,7 @@ public class HttpMain extends AbstractHandler {
 
             // finally combine the logical schema with the physical runtime
             starWarsSchema = new SchemaGenerator().makeExecutableSchema(typeRegistry, wiring);
+            starWarsSchema = starWarsSchema.transform(builder -> builder.additionalDirective(DeferDirective));
         }
         return starWarsSchema;
     }

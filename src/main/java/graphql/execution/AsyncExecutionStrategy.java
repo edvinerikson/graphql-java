@@ -2,6 +2,10 @@ package graphql.execution;
 
 import graphql.ExecutionResult;
 import graphql.PublicApi;
+import graphql.execution.defer.DeferSupport;
+import graphql.execution.defer.DeferredCall;
+import graphql.execution.defer.DeferredErrorSupport;
+
 import graphql.execution.instrumentation.DeferredFieldInstrumentationContext;
 import graphql.execution.instrumentation.ExecutionStrategyInstrumentationContext;
 import graphql.execution.instrumentation.Instrumentation;
@@ -11,11 +15,15 @@ import graphql.schema.GraphQLFieldDefinition;
 import graphql.schema.GraphQLObjectType;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+
+import static graphql.execution.MergedSelectionSet.newMergedSelectionSet;
 
 /**
  * The standard graphql execution strategy that runs fields asynchronously non-blocking.
@@ -60,7 +68,14 @@ public class AsyncExecutionStrategy extends AbstractAsyncExecutionStrategy {
                     .transform(builder -> builder.field(currentField).path(fieldPath).parent(parameters));
 
             resolvedFields.add(fieldName);
-            CompletableFuture<FieldValueInfo> future = resolveFieldWithInfo(executionContext, newParameters);
+            CompletableFuture<FieldValueInfo> future;
+
+            if (isDeferred(executionContext, newParameters, currentField)) {
+                executionStrategyCtx.onDeferredField(currentField);
+                future = resolveFieldWithInfoToNull(executionContext, newParameters);
+            } else {
+                future = resolveFieldWithInfo(executionContext, newParameters);
+            }
             futures.add(future);
         }
         CompletableFuture<ExecutionResult> overallResult = new CompletableFuture<>();
@@ -87,6 +102,33 @@ public class AsyncExecutionStrategy extends AbstractAsyncExecutionStrategy {
         return overallResult;
     }
 
+    private boolean isDeferred(ExecutionContext executionContext, ExecutionStrategyParameters parameters, MergedField currentField) {
+        DeferSupport deferSupport = executionContext.getDeferSupport();
+        if (deferSupport.checkForDeferDirective(currentField, executionContext.getVariables())) {
+            DeferredErrorSupport errorSupport = new DeferredErrorSupport();
+
+            // with a deferred field we are really resetting where we execute from, that is from this current field onwards
+            Map<String, MergedField> fields = new LinkedHashMap<>();
+            fields.put(currentField.getName(), currentField);
+
+            ExecutionStrategyParameters callParameters = parameters.transform(builder ->
+                    {
+                        MergedSelectionSet mergedSelectionSet = newMergedSelectionSet().subFields(fields).build();
+                        builder.deferredErrorSupport(errorSupport)
+                                .field(currentField)
+                                .fields(mergedSelectionSet)
+                                .parent(null) // this is a break in the parent -> child chain - its a new start effectively
+                                .listSize(0)
+                                .currentListIndex(0);
+                    }
+            );
+
+            DeferredCall call = new DeferredCall(parameters.getPath(), deferredExecutionResult(executionContext, callParameters), errorSupport);
+            deferSupport.enqueue(call);
+            return true;
+        }
+        return false;
+    }
 
     @SuppressWarnings("FutureReturnValueIgnored")
     private Supplier<CompletableFuture<ExecutionResult>> deferredExecutionResult(ExecutionContext executionContext, ExecutionStrategyParameters parameters) {

@@ -284,7 +284,7 @@ public abstract class ExecutionStrategy {
                 .handle((result, exception) -> {
                     fetchCtx.onCompleted(result, exception);
                     if (exception != null) {
-                        handleFetchingException(executionContext, environment, exception);
+                        handleFetchingException(executionContext, parameters, environment, exception);
                         return null;
                     } else {
                         return result;
@@ -328,6 +328,7 @@ public abstract class ExecutionStrategy {
     }
 
     protected void handleFetchingException(ExecutionContext executionContext,
+                                         ExecutionStrategyParameters parameters,
                                          DataFetchingEnvironment environment,
                                          Throwable e) {
         DataFetcherExceptionHandlerParameters handlerParameters = DataFetcherExceptionHandlerParameters.newExceptionParameters()

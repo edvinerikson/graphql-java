@@ -7,8 +7,7 @@ import graphql.language.Directive;
 import java.util.List;
 import java.util.Map;
 
-import static graphql.Directives.IncludeDirective;
-import static graphql.Directives.SkipDirective;
+import static graphql.Directives.*;
 import static graphql.language.NodeUtil.directiveByName;
 
 
@@ -23,6 +22,11 @@ public class ConditionalNodes {
         boolean skip = getDirectiveResult(variables, directives, SkipDirective.getName(), false);
         boolean include = getDirectiveResult(variables, directives, IncludeDirective.getName(), true);
         return !skip && include;
+    }
+
+    public boolean shouldDefer(Map<String, Object> variables, List<Directive> directives) {
+        boolean defer = getDirectiveResult(variables, directives, DeferDirective.getName(), true);
+        return defer;
     }
 
     private Directive getDirectiveByName(List<Directive> directives, String name) {

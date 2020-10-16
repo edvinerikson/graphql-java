@@ -3,8 +3,7 @@ package graphql;
 
 import graphql.schema.GraphQLDirective;
 
-import static graphql.Scalars.GraphQLBoolean;
-import static graphql.Scalars.GraphQLString;
+import static graphql.Scalars.*;
 import static graphql.introspection.Introspection.DirectiveLocation.ENUM_VALUE;
 import static graphql.introspection.Introspection.DirectiveLocation.FIELD;
 import static graphql.introspection.Introspection.DirectiveLocation.FIELD_DEFINITION;
@@ -19,6 +18,38 @@ import static graphql.schema.GraphQLNonNull.nonNull;
  */
 @PublicApi
 public class Directives {
+
+    public static final GraphQLDirective DeferDirective = GraphQLDirective.newDirective()
+            .name("defer")
+            .description("")
+            .argument(newArgument()
+                    .name("if")
+                    .type(GraphQLBoolean)
+                    .description("defer when true."))
+            .argument(newArgument()
+                    .name("label")
+                    .type(GraphQLString)
+                    .description(""))
+            .validLocations(FRAGMENT_SPREAD, INLINE_FRAGMENT)
+            .build();
+
+    public static final GraphQLDirective StreamDirective = GraphQLDirective.newDirective()
+            .name("stream")
+            .description("")
+            .argument(newArgument()
+                    .name("if")
+                    .type(GraphQLBoolean)
+                    .description("stream when true."))
+            .argument(newArgument()
+                    .name("label")
+                    .type(GraphQLString)
+                    .description(""))
+            .argument(newArgument()
+                    .name("initialCount")
+                    .type(nonNull(GraphQLInt))
+                    .description(""))
+            .validLocations(FIELD)
+            .build();
 
     public static final GraphQLDirective IncludeDirective = GraphQLDirective.newDirective()
             .name("include")
@@ -38,22 +69,6 @@ public class Directives {
                     .type(nonNull(GraphQLBoolean))
                     .description("Skipped when true."))
             .validLocations(FRAGMENT_SPREAD, INLINE_FRAGMENT, FIELD)
-            .build();
-
-    /**
-     * The @defer directive can be used to defer sending data for a field till later in the query.  This is an opt in
-     * directive that is not available unless it is explicitly put into the schema.
-     */
-    public static final GraphQLDirective DeferDirective = GraphQLDirective.newDirective()
-            .name("defer")
-            .description("This directive allows results to be deferred during execution")
-            .argument(newArgument()
-                    .name("if")
-                    .type(nonNull(GraphQLBoolean))
-                    .description("Deferred behaviour is controlled by this argument")
-                    .defaultValue(true)
-            )
-            .validLocations(FIELD)
             .build();
 
     /**

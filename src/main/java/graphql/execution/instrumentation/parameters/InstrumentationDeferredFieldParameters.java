@@ -6,6 +6,8 @@ import graphql.execution.ExecutionStrategyParameters;
 import graphql.execution.instrumentation.InstrumentationState;
 import graphql.schema.GraphQLFieldDefinition;
 
+import java.util.function.Supplier;
+
 /**
  * Parameters sent to {@link graphql.execution.instrumentation.Instrumentation} methods
  */
@@ -13,12 +15,12 @@ public class InstrumentationDeferredFieldParameters extends InstrumentationField
 
     private final ExecutionStrategyParameters executionStrategyParameters;
 
-    public InstrumentationDeferredFieldParameters(ExecutionContext executionContext, ExecutionStrategyParameters executionStrategyParameters, GraphQLFieldDefinition fieldDef, ExecutionStepInfo executionStepInfo) {
-        this(executionContext, executionStrategyParameters, fieldDef, executionStepInfo, executionContext.getInstrumentationState());
+    public InstrumentationDeferredFieldParameters(ExecutionContext executionContext, ExecutionStrategyParameters executionStrategyParameters, Supplier<ExecutionStepInfo> executionStepInfo) {
+        this(executionContext, executionStrategyParameters, executionContext.getInstrumentationState(), executionStepInfo);
     }
 
-    InstrumentationDeferredFieldParameters(ExecutionContext executionContext, ExecutionStrategyParameters executionStrategyParameters, GraphQLFieldDefinition fieldDef, ExecutionStepInfo executionStepInfo, InstrumentationState instrumentationState) {
-        super(executionContext, fieldDef, executionStepInfo, instrumentationState);
+    InstrumentationDeferredFieldParameters(ExecutionContext executionContext, ExecutionStrategyParameters executionStrategyParameters, InstrumentationState instrumentationState, Supplier<ExecutionStepInfo> executionStepInfo) {
+        super(executionContext, executionStepInfo, instrumentationState);
         this.executionStrategyParameters = executionStrategyParameters;
     }
 
@@ -32,7 +34,7 @@ public class InstrumentationDeferredFieldParameters extends InstrumentationField
     @Override
     public InstrumentationDeferredFieldParameters withNewState(InstrumentationState instrumentationState) {
         return new InstrumentationDeferredFieldParameters(
-                this.getExecutionContext(), this.executionStrategyParameters, this.getField(), this.getExecutionStepInfo(), instrumentationState);
+                this.getExecutionContext(), this.executionStrategyParameters, instrumentationState, this::getExecutionStepInfo);
     }
 
     public ExecutionStrategyParameters getExecutionStrategyParameters() {

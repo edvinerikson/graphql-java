@@ -295,7 +295,7 @@ public class BatchedExecutionStrategy extends ExecutionStrategy {
                     exception = exception.getCause();
                 }
 
-                handleFetchingException(executionContext, environment, exception);
+                handleFetchingException(executionContext, parameters, environment, exception);
 
                 result = Collections.nCopies(parentResults.size(), null);
             }

@@ -54,4 +54,6 @@ public interface ExecutionResult {
      * @return a map of the result that strictly follows the spec
      */
     Map<String, Object> toSpecification();
+
+    Boolean getHasNext();
 }

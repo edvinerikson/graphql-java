@@ -24,11 +24,6 @@ public class ConditionalNodes {
         return !skip && include;
     }
 
-    public boolean shouldDefer(Map<String, Object> variables, List<Directive> directives) {
-        boolean defer = getDirectiveResult(variables, directives, DeferDirective.getName(), true);
-        return defer;
-    }
-
     private Directive getDirectiveByName(List<Directive> directives, String name) {
         if (directives.isEmpty()) {
             return null;

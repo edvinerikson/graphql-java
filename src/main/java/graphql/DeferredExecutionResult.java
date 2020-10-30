@@ -13,4 +13,10 @@ public interface DeferredExecutionResult extends ExecutionResult {
      * @return the execution path of this deferred result in the original query
      */
     List<Object> getPath();
+
+    /**
+     *
+     * @return the label of this deferred result
+     */
+    String getLabel();
 }

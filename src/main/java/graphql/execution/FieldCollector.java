@@ -3,6 +3,7 @@ package graphql.execution;
 
 import graphql.Directives;
 import graphql.Internal;
+import graphql.execution.defer.DeferSupport;
 import graphql.language.*;
 import graphql.schema.GraphQLInterfaceType;
 import graphql.schema.GraphQLObjectType;
@@ -27,6 +28,7 @@ public class FieldCollector {
 
     private final ConditionalNodes conditionalNodes = new ConditionalNodes();
     private final ValuesResolver valuesResolver = new ValuesResolver();
+    private final DeferSupport deferSupport = new DeferSupport();
 
     public MergedSelectionSet collectFields(FieldCollectorParameters parameters, MergedField mergedField) {
         Map<String, MergedField> subFields = new LinkedHashMap<>();
@@ -62,7 +64,7 @@ public class FieldCollector {
 
         for (Selection selection : selectionSet.getSelections()) {
             if (selection instanceof Field) {
-                collectField(parameters, fields, (Field) selection);
+                collectField(parameters, fields, (Field) selection,  deferredFragments);
             } else if (selection instanceof InlineFragment) {
                 collectInlineFragment(parameters, visitedFragments, fields, (InlineFragment) selection, deferredFragments);
             } else if (selection instanceof FragmentSpread) {
@@ -88,8 +90,8 @@ public class FieldCollector {
             return;
         }
 
-        if (conditionalNodes.shouldDefer(parameters.getVariables(), fragmentDefinition.getDirectives())) {
-            deferFragment(parameters, fragmentSpread.getDirectives(), fragmentDefinition.getSelectionSet(), deferredFragments);
+        if (deferSupport.checkForDeferDirective(fragmentSpread, parameters.getVariables())) {
+            deferFragment(parameters, fragmentSpread, fragmentDefinition.getSelectionSet(), deferredFragments);
             return;
         }
 
@@ -104,24 +106,25 @@ public class FieldCollector {
             return;
         }
 
-        if (conditionalNodes.shouldDefer(parameters.getVariables(), inlineFragment.getDirectives())) {
-            deferFragment(parameters, inlineFragment.getDirectives(), inlineFragment.getSelectionSet(), deferredFragments);
+        if (deferSupport.checkForDeferDirective(inlineFragment, parameters.getVariables())) {
+            deferFragment(parameters, inlineFragment, deferredFragments);
             return;
         }
 
         collectFields(parameters, inlineFragment.getSelectionSet(), visitedFragments, fields, deferredFragments);
     }
 
-    private void collectField(FieldCollectorParameters parameters, Map<String, MergedField> fields, Field field) {
+    private void collectField(FieldCollectorParameters parameters, Map<String, MergedField> fields, Field field, Set<DeferFragment> deferredFragments) {
         if (!conditionalNodes.shouldInclude(parameters.getVariables(), field.getDirectives())) {
             return;
         }
         String name = getFieldEntryKey(field);
         if (fields.containsKey(name)) {
             MergedField curFields = fields.get(name);
-            fields.put(name, curFields.transform(builder -> builder.addField(field)));
+            deferredFragments.addAll(curFields.getDeferredFragments());
+            fields.put(name, curFields.transform(builder -> builder.addField(field).deferredFragments(deferredFragments)));
         } else {
-            fields.put(name, MergedField.newMergedField(field).build());
+            fields.put(name, MergedField.newMergedField(field).deferredFragments(deferredFragments).build());
         }
     }
 
@@ -164,22 +167,22 @@ public class FieldCollector {
         return false;
     }
 
-    private void deferFragment(FieldCollectorParameters parameters, List<Directive> directives, SelectionSet selectionSet, Set<DeferFragment> deferredFragments) {
-        for (Directive directive : directives) {
-            if (directive.getName().equals(Directives.DeferDirective.getName())) {
-                Map<String, Object> arguments = valuesResolver.getArgumentValues(Directives.DeferDirective.getArguments(), directive.getArguments(), parameters.getVariables());
-
-                DeferFragment fragment = DeferFragment.newDeferFragment()
-                        .label((String)arguments.get("label"))
-                        .selectionSet(collectFields(parameters, selectionSet))
-                        // .objectType(getTypeFromAST(parameters.getGraphQLSchema(), inlineFragment.getTypeCondition()))
-                        .build();
-                deferredFragments.add(fragment);
-                break;
-            }
-        }
-
+    private void deferFragment(FieldCollectorParameters parameters, FragmentSpread fragmentSpread, SelectionSet selectionSet, Set<DeferFragment> deferredFragments) {
+        Directive directive = fragmentSpread.getDirective(Directives.DeferDirective.getName());
+        deferFragment(parameters, directive.getArguments(), selectionSet, deferredFragments);
     }
 
+    private void deferFragment(FieldCollectorParameters parameters, InlineFragment inlineFragment, Set<DeferFragment> deferredFragments) {
+        Directive directive = inlineFragment.getDirective(Directives.DeferDirective.getName());
+        deferFragment(parameters, directive.getArguments(), inlineFragment.getSelectionSet(), deferredFragments);
+    }
 
+    private void deferFragment(FieldCollectorParameters parameters, List<Argument> arguments, SelectionSet selectionSet, Set<DeferFragment> deferredFragments) {
+        Map<String, Object> values = valuesResolver.getArgumentValues(Directives.DeferDirective.getArguments(), arguments, parameters.getVariables());
+        DeferFragment fragment = DeferFragment.newDeferFragment()
+                .label((String)values.get("label"))
+                .selectionSet(collectFields(parameters, selectionSet))
+                .build();
+        deferredFragments.add(fragment);
+    }
 }

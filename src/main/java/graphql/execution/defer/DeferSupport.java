@@ -1,19 +1,16 @@
 package graphql.execution.defer;
 
-import graphql.DeferredExecutionResult;
-import graphql.Directives;
-import graphql.ExecutionResult;
-import graphql.Internal;
+import graphql.*;
 import graphql.execution.MergedField;
 import graphql.execution.ValuesResolver;
 import graphql.execution.reactive.SingleSubscriberPublisher;
 import graphql.language.Directive;
 import graphql.language.Field;
+import graphql.language.FragmentSpread;
+import graphql.language.InlineFragment;
 import org.reactivestreams.Publisher;
 
-import java.util.Deque;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -28,42 +25,37 @@ import static graphql.Directives.*;
 public class DeferSupport {
 
     private final AtomicBoolean deferDetected = new AtomicBoolean(false);
-    private final Deque<DeferredCall> deferredCalls = new ConcurrentLinkedDeque<>();
+    private final Deque<CompletableFuture<DeferredExecutionResult>> deferredCalls = new ConcurrentLinkedDeque<>();
     private final SingleSubscriberPublisher<DeferredExecutionResult> publisher = new SingleSubscriberPublisher<>();
     private final ValuesResolver valuesResolver = new ValuesResolver();
 
-    public boolean checkForDeferDirective(MergedField currentField, Map<String,Object> variables) {
-        for (Field field : currentField.getFields()) {
-            Directive directive = field.getDirective(DeferDirective.getName());
-            if (directive != null) {
-                Map<String, Object> argumentValues = valuesResolver.getArgumentValues(DeferDirective.getArguments(), directive.getArguments(), variables);
-                return (Boolean) argumentValues.get("if");
-            }
+    public boolean checkForDeferDirective(FragmentSpread fragmentSpread, Map<String,Object> variables) {
+        return shouldDefer(fragmentSpread.getDirective(DeferDirective.getName()), variables);
+    }
+
+    public boolean checkForDeferDirective(InlineFragment inlineFragment, Map<String, Object> variables) {
+        return shouldDefer(inlineFragment.getDirective(DeferDirective.getName()), variables);
+    }
+
+    private boolean shouldDefer(Directive directive, Map<String, Object> variables) {
+        if (directive != null) {
+            Map<String, Object> argumentValues = valuesResolver.getArgumentValues(DeferDirective.getArguments(), directive.getArguments(), variables);
+            return (Boolean) argumentValues.getOrDefault("if", true);
         }
         return false;
     }
 
     @SuppressWarnings("FutureReturnValueIgnored")
     private void drainDeferredCalls() {
-        if (deferredCalls.isEmpty()) {
-            publisher.noMoreData();
-            return;
-        }
-        DeferredCall deferredCall = deferredCalls.pop();
-        CompletableFuture<DeferredExecutionResult> future = deferredCall.invoke();
-        future.whenComplete((executionResult, exception) -> {
-            if (exception != null) {
-                publisher.offerError(exception);
-                return;
-            }
-            publisher.offer(executionResult);
-            drainDeferredCalls();
-        });
+
+
     }
+
 
     public void enqueue(DeferredCall deferredCall) {
         deferDetected.set(true);
-        deferredCalls.offer(deferredCall);
+        CompletableFuture<DeferredExecutionResult> future = deferredCall.invoke();
+        deferredCalls.offer(future);
     }
 
     public boolean isDeferDetected() {

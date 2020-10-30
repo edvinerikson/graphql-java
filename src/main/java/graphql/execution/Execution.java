@@ -187,7 +187,7 @@ public class Execution {
     }
 
     /*
-     * Adds the deferred publisher if its needed at the end of the query.  This is also a good time for the deferred code to start running
+     * Adds the deferred publisher if its needed at the end of the query.
      */
     private CompletableFuture<ExecutionResult> deferSupport(ExecutionContext executionContext, CompletableFuture<ExecutionResult> result) {
         return result.thenApply(er -> {
@@ -197,8 +197,10 @@ public class Execution {
                 // and now we can start the rest of the calls as early as possible (even before some one subscribes)
                 Publisher<DeferredExecutionResult> publisher = deferSupport.startDeferredCalls();
                 return ExecutionResultImpl.newExecutionResult().from(er)
+                        .hasNext(true)
                         .addExtension(GraphQL.DEFERRED_RESULTS, publisher)
                         .build();
+
             }
             return er;
         });

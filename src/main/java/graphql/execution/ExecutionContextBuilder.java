@@ -6,6 +6,7 @@ import graphql.GraphQLError;
 import graphql.Internal;
 import graphql.PublicApi;
 import graphql.cachecontrol.CacheControl;
+import graphql.execution.defer.DeferSupport;
 import graphql.execution.instrumentation.Instrumentation;
 import graphql.execution.instrumentation.InstrumentationState;
 import graphql.language.Document;
@@ -45,6 +46,7 @@ public class ExecutionContextBuilder {
     ValueUnboxer valueUnboxer;
     Object localContext;
     ExecutionInput executionInput;
+    DeferSupport deferSupport;
 
     /**
      * @return a new builder of {@link graphql.execution.ExecutionContext}s
@@ -89,6 +91,7 @@ public class ExecutionContextBuilder {
         errors = new ArrayList<>(other.getErrors());
         valueUnboxer = other.getValueUnboxer();
         executionInput = other.getExecutionInput();
+        deferSupport = other.getDeferSupport();
     }
 
     public ExecutionContextBuilder instrumentation(Instrumentation instrumentation) {

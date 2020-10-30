@@ -47,7 +47,7 @@ public class ExecutionContext {
     private final DataLoaderRegistry dataLoaderRegistry;
     private final CacheControl cacheControl;
     private final Locale locale;
-    private final DeferSupport deferSupport = new DeferSupport();
+    private final DeferSupport deferSupport;
     private final ValueUnboxer valueUnboxer;
     private final ExecutionInput executionInput;
 
@@ -72,6 +72,7 @@ public class ExecutionContext {
         this.errors.addAll(builder.errors);
         this.localContext = builder.localContext;
         this.executionInput = builder.executionInput;
+        this.deferSupport = builder.deferSupport == null ? new DeferSupport() : builder.deferSupport;
     }
 
 

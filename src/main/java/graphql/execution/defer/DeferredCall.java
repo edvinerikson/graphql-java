@@ -19,12 +19,12 @@ import java.util.function.Supplier;
 public class DeferredCall {
     private final ResultPath path;
     private final Supplier<CompletableFuture<ExecutionResult>> call;
-    private final DeferredErrorSupport errorSupport;
+    private final String label;
 
-    public DeferredCall(ResultPath path, Supplier<CompletableFuture<ExecutionResult>> call, DeferredErrorSupport deferredErrorSupport) {
+    public DeferredCall(ResultPath path, Supplier<CompletableFuture<ExecutionResult>> call, String label) {
         this.path = path;
         this.call = call;
-        this.errorSupport = deferredErrorSupport;
+        this.label = label;
     }
 
     CompletableFuture<DeferredExecutionResult> invoke() {
@@ -33,11 +33,10 @@ public class DeferredCall {
     }
 
     private DeferredExecutionResult transformToDeferredResult(ExecutionResult executionResult) {
-        List<GraphQLError> errorsEncountered = errorSupport.getErrors();
         DeferredExecutionResultImpl.Builder builder = DeferredExecutionResultImpl.newDeferredExecutionResult().from(executionResult);
         return builder
-                .addErrors(errorsEncountered)
                 .path(path)
+                .label(label)
                 .build();
     }
 }

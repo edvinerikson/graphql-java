@@ -46,8 +46,10 @@ class DeferredErrorSupportTest extends Specification {
         when:
         def executionResult = graphql.execute('''
             {
-                stage1,
-                stage2 @defer
+                stage1
+                ... on Query @defer {
+                    stage2
+                }
             }
         ''')
 

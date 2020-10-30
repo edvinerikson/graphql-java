@@ -152,21 +152,28 @@ class DeferSupportIntegrationTest extends Specification {
             query {
                 post {
                     postText
-                    
-                    a :comments(sleepTime:200) @defer {
-                        commentText
+                    ... on Post @defer(label: "a") {
+                       a :comments(sleepTime:200) {
+                          commentText
+                       }  
                     }
                     
-                    b : reviews(sleepTime:100) @defer {
-                        reviewText
-                        comments(prefix : "b_") @defer {
-                            commentText
+                    ... on Post @defer(label: "b") {
+                        b : reviews(sleepTime:100) {
+                            reviewText
+                            ... on Review @defer(label: "b_comments") {
+                                comments(prefix : "b_") {
+                                    commentText
+                                }
+                            }
                         }
                     }
-
-                    c: reviews @defer {
-                        goes {
-                            bang
+                    
+                    ... on Post @defer(label: "c") {
+                        c: reviews {
+                            goes {
+                                bang
+                            }
                         }
                     }
                 }
@@ -178,7 +185,7 @@ class DeferSupportIntegrationTest extends Specification {
 
         then:
         initialResult.errors.isEmpty()
-        initialResult.data == ["post": ["postText": "post_data", a: null, b: null, c: null]]
+        initialResult.data == ["post": ["postText": "post_data"]]
 
         when:
 
@@ -201,27 +208,35 @@ class DeferSupportIntegrationTest extends Specification {
             query {
                 post {
                     interspersedA: echo(text:"before a:")
-                    
-                    a: comments(sleepTime:200) @defer {
-                        commentText
-                    }
-                    
-                    interspersedB: echo(text:"before b:")
-                    
-                    b : reviews(sleepTime:100) @defer {
-                        reviewText
-                        comments(prefix : "b_") @defer {
+                    ... on Post @defer {
+                        a: comments(sleepTime:200) {
                             commentText
                         }
                     }
-
-                    interspersedC: echo(text:"before c:")
-
-                    c: reviews @defer {
-                        goes {
-                            bang
+                      
+                    interspersedB: echo(text:"before b:")
+                    
+                    ... on Post @defer {
+                        b : reviews(sleepTime:100) {
+                            reviewText
+                            ... on Review @defer {
+                                comments(prefix : "b_") {
+                                    commentText
+                                }
+                            }
                         }
                     }
+                    
+                    interspersedC: echo(text:"before c:")
+
+                    ... on Post @defer {
+                        c: reviews {
+                            goes {
+                                bang
+                            }
+                        }
+                    }
+                    
                     
                     interspersedD: echo(text:"after c:")
                 }
@@ -235,11 +250,11 @@ class DeferSupportIntegrationTest extends Specification {
         initialResult.errors.isEmpty()
         initialResult.data == ["post": [
                 "interspersedA": "before a:",
-                "a"            : null,
+
                 "interspersedB": "before b:",
-                "b"            : null,
+
                 "interspersedC": "before c:",
-                "c"            : null,
+
                 "interspersedD": "after c:",
         ]]
 
@@ -261,68 +276,34 @@ class DeferSupportIntegrationTest extends Specification {
     def assertDeferredData(ArrayList<DeferredExecutionResult> resultList) {
         resultList.size() == 6
 
-        assert resultList[0].data == [[commentText: "comment0"], [commentText: "comment1"], [commentText: "comment2"]]
+        assert resultList[0].data == [a:[[commentText: "comment0"], [commentText: "comment1"], [commentText: "comment2"]]]
         assert resultList[0].errors == []
-        assert resultList[0].path == ["post", "a"]
+        assert resultList[0].path == ["post"]
 
-        assert resultList[1].data == [[reviewText: "review0", comments: null], [reviewText: "review1", comments: null], [reviewText: "review2", comments: null]]
+        assert resultList[1].data == [b:[[reviewText: "review0"], [reviewText: "review1"], [reviewText: "review2"]]]
         assert resultList[1].errors == []
-        assert resultList[1].path == ["post", "b"]
+        assert resultList[1].path == ["post"]
 
         // exceptions in here
         assert resultList[2].errors.size() == 3
         assert resultList[2].errors[0].getMessage() == "Exception while fetching data (/post/c[0]/goes/bang) : Bang!"
         assert resultList[2].errors[1].getMessage() == "Exception while fetching data (/post/c[1]/goes/bang) : Bang!"
         assert resultList[2].errors[2].getMessage() == "Exception while fetching data (/post/c[2]/goes/bang) : Bang!"
-        assert resultList[2].path == ["post", "c"]
+        assert resultList[2].path == ["post"]
 
         // sub defers are sent in encountered order
-        assert resultList[3].data == [[commentText: "b_comment0"], [commentText: "b_comment1"], [commentText: "b_comment2"]]
+        assert resultList[3].data == [comments:[[commentText: "b_comment0"], [commentText: "b_comment1"], [commentText: "b_comment2"]]]
         assert resultList[3].errors == []
-        assert resultList[3].path == ["post", "b", 0, "comments"]
+        assert resultList[3].path == ["post", "b", 0]
 
-        assert resultList[4].data == [[commentText: "b_comment0"], [commentText: "b_comment1"], [commentText: "b_comment2"]]
+        assert resultList[4].data == [comments: [[commentText: "b_comment0"], [commentText: "b_comment1"], [commentText: "b_comment2"]]]
         assert resultList[4].errors == []
-        assert resultList[4].path == ["post", "b", 1, "comments"]
+        assert resultList[4].path == ["post", "b", 1]
 
-        assert resultList[5].data == [[commentText: "b_comment0"], [commentText: "b_comment1"], [commentText: "b_comment2"]]
+        assert resultList[5].data == [comments: [[commentText: "b_comment0"], [commentText: "b_comment1"], [commentText: "b_comment2"]]]
         assert resultList[5].errors == []
-        assert resultList[5].path == ["post", "b", 2, "comments"]
+        assert resultList[5].path == ["post", "b", 2]
 
         true
-    }
-
-    def "nonNull types are not allowed"() {
-
-        def query = '''
-            {
-                mandatoryReviews @defer # nulls are not allowed
-                {
-                    reviewText
-                }
-            }
-        '''
-        when:
-        def initialResult = graphQL.execute(ExecutionInput.newExecutionInput().query(query).build())
-        then:
-        initialResult.errors.size() == 1
-        initialResult.errors[0].errorType == ErrorType.ValidationError
-        (initialResult.errors[0] as ValidationError).validationErrorType == ValidationErrorType.DeferDirectiveOnNonNullField
-
-    }
-
-    def "mutations cant have defers"() {
-
-        def query = '''
-            mutation {
-                mutate(arg : "go") @defer
-            }
-        '''
-        when:
-        def initialResult = graphQL.execute(ExecutionInput.newExecutionInput().query(query).build())
-        then:
-        initialResult.errors.size() == 1
-        initialResult.errors[0].errorType == ErrorType.ValidationError
-        (initialResult.errors[0] as ValidationError).validationErrorType == ValidationErrorType.DeferDirectiveNotOnQueryOperation
     }
 }

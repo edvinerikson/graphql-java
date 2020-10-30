@@ -1,6 +1,7 @@
 package graphql.execution.defer
 
 import graphql.DeferredExecutionResult
+import graphql.Directives
 import graphql.ExecutionResult
 import graphql.ExecutionResultImpl
 import graphql.execution.ResultPath
@@ -8,6 +9,7 @@ import graphql.language.Argument
 import graphql.language.BooleanValue
 import graphql.language.Directive
 import graphql.language.Field
+import graphql.language.FragmentSpread
 import graphql.language.VariableReference
 import org.awaitility.Awaitility
 import spock.lang.Specification
@@ -15,6 +17,8 @@ import spock.lang.Specification
 import java.util.concurrent.CompletableFuture
 
 import static graphql.TestUtil.mergedField
+import static graphql.TestUtil.parseField
+import static graphql.TestUtil.parseQuery
 
 class DeferSupportTest extends Specification {
 
@@ -182,19 +186,15 @@ class DeferSupportTest extends Specification {
         def deferSupport = new DeferSupport()
 
         when:
-        def noDirectivePresent = deferSupport.checkForDeferDirective(mergedField([
-                new Field("a"),
-                new Field("b")
-        ]), [:])
+
+
+        def noDirectivePresent = deferSupport.checkForDeferDirective(FragmentSpread.newFragmentSpread("NotDeferred").build(), [:])
 
         then:
         !noDirectivePresent
 
         when:
-        def directivePresent = deferSupport.checkForDeferDirective(mergedField([
-                Field.newField("a").directives([new Directive("defer")]).build(),
-                new Field("b")
-        ]), [:])
+        def directivePresent = deferSupport.checkForDeferDirective(FragmentSpread.newFragmentSpread("Deferred").directives([new Directive("defer")]).build(), [:])
 
         then:
         directivePresent
@@ -206,40 +206,32 @@ class DeferSupportTest extends Specification {
 
         when:
         def ifArg = new Argument("if", new BooleanValue(false))
-        def directivePresent = deferSupport.checkForDeferDirective(mergedField([
-                Field.newField("a").directives([new Directive("defer", [ifArg])]).build(),
-                new Field("b")
-        ]), [:])
+        def directivePresent = deferSupport.checkForDeferDirective(
+                FragmentSpread.newFragmentSpread("NotDeferred").directives([new Directive("defer", [ifArg])]).build(),
+                [:])
 
         then:
         !directivePresent
 
         when:
         ifArg = new Argument("if", new BooleanValue(true))
-        directivePresent = deferSupport.checkForDeferDirective(mergedField([
-                Field.newField("a").directives([new Directive("defer", [ifArg])]).build(),
-                new Field("b")
-        ]), [:])
+        directivePresent = deferSupport.checkForDeferDirective(
+                FragmentSpread.newFragmentSpread("Deferred").directives([new Directive("defer", [ifArg])]).build(),
+                [:])
 
         then:
         directivePresent
 
         when:
         ifArg = new Argument("if", new VariableReference("varRef"))
-        directivePresent = deferSupport.checkForDeferDirective(mergedField([
-                Field.newField("a").directives([new Directive("defer", [ifArg])]).build(),
-                new Field("b")
-        ]), [varRef: false])
+        directivePresent = deferSupport.checkForDeferDirective(FragmentSpread.newFragmentSpread("NotDeferred").directives([new Directive("defer", [ifArg])]).build(), [varRef: false])
 
         then:
         !directivePresent
 
         when:
         ifArg = new Argument("if", new VariableReference("varRef"))
-        directivePresent = deferSupport.checkForDeferDirective(mergedField([
-                Field.newField("a").directives([new Directive("defer", [ifArg])]).build(),
-                new Field("b")
-        ]), [varRef: true])
+        directivePresent = deferSupport.checkForDeferDirective(FragmentSpread.newFragmentSpread("Deferred").directives([new Directive("defer", [ifArg])]).build(), [varRef: true])
 
         then:
         directivePresent
@@ -255,7 +247,7 @@ class DeferSupportTest extends Specification {
                 new ExecutionResultImpl(data, [])
             })
         }
-        return new DeferredCall(ResultPath.parse(path), callSupplier, new DeferredErrorSupport())
+        return new DeferredCall(ResultPath.parse(path), callSupplier, null)
     }
 
     private
@@ -267,6 +259,6 @@ class DeferSupportTest extends Specification {
                 new ExecutionResultImpl(dataParent, [])
             })
         }
-        return new DeferredCall(ResultPath.parse("/field/path"), callSupplier, new DeferredErrorSupport())
+        return new DeferredCall(ResultPath.parse("/field/path"), callSupplier, null)
     }
 }

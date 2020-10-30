@@ -15,7 +15,7 @@ class DeferredCallTest extends Specification {
         given:
         DeferredCall call = new DeferredCall(parse("/path"), {
             completedFuture(new ExecutionResultImpl("some data", Collections.emptyList()))
-        }, new DeferredErrorSupport())
+        }, null)
 
         when:
         def future = call.invoke()
@@ -26,23 +26,17 @@ class DeferredCallTest extends Specification {
 
     def "test error capture happens via CF"() {
         given:
-        def errorSupport = new DeferredErrorSupport()
-        errorSupport.onError(new ValidationError(ValidationErrorType.MissingFieldArgument))
-        errorSupport.onError(new ValidationError(ValidationErrorType.FieldsConflict))
-
         DeferredCall call = new DeferredCall(parse("/path"), {
             completedFuture(new ExecutionResultImpl("some data", [new ValidationError(ValidationErrorType.FieldUndefined)]))
-        }, errorSupport)
+        }, null)
 
         when:
         def future = call.invoke()
         def er = future.join()
 
         then:
-        er.errors.size() == 3
+        er.errors.size() == 1
         er.errors[0].message.contains("Validation error of type FieldUndefined")
-        er.errors[1].message.contains("Validation error of type MissingFieldArgument")
-        er.errors[2].message.contains("Validation error of type FieldsConflict")
         er.path == ["path"]
     }
 }

@@ -13,8 +13,4 @@ public interface ExecutionStrategyInstrumentationContext extends Instrumentation
     default void onFieldValuesInfo(List<FieldValueInfo> fieldValueInfoList) {
 
     }
-
-    default void onDeferredField(MergedField field) {
-
-    }
 }

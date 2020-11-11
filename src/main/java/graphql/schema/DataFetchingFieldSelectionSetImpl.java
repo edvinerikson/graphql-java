@@ -331,7 +331,7 @@ public class DataFetchingFieldSelectionSetImpl implements DataFetchingFieldSelec
         public boolean isConditional() {
             return normalizedField.isConditional();
         }
-        
+
         @Override
         public String getAlias() {
             return normalizedField.getAlias();

@@ -158,19 +158,6 @@ public class FieldLevelTrackingApproach {
                     dispatch();
                 }
             }
-
-            @Override
-            public void onDeferredField(MergedField field) {
-                boolean dispatchNeeded;
-                // fake fetch count for this field
-                synchronized (callStack) {
-                    callStack.increaseFetchCount(curLevel);
-                    dispatchNeeded = dispatchIfNeeded(callStack, curLevel);
-                }
-                if (dispatchNeeded) {
-                    dispatch();
-                }
-            }
         };
     }
 

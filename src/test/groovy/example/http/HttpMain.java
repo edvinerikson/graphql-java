@@ -160,10 +160,6 @@ public class HttpMain extends AbstractHandler {
 
 
     private void returnAsJson(HttpServletResponse response, ExecutionResult executionResult) throws IOException {
-        Map<Object, Object> extensions = executionResult.getExtensions();
-        if (extensions != null && extensions.containsKey(GraphQL.DEFERRED_RESULTS)) {
-            DeferHttpSupport.sendDeferredResponse(response, executionResult, extensions);
-        }
         sendNormalResponse(response, executionResult);
     }
 
@@ -260,7 +256,6 @@ public class HttpMain extends AbstractHandler {
 
             // finally combine the logical schema with the physical runtime
             starWarsSchema = new SchemaGenerator().makeExecutableSchema(typeRegistry, wiring);
-            starWarsSchema = starWarsSchema.transform(builder -> builder.additionalDirective(DeferDirective));
         }
         return starWarsSchema;
     }

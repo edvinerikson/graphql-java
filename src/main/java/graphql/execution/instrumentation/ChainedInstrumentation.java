@@ -11,10 +11,7 @@ import graphql.schema.DataFetcher;
 import graphql.schema.GraphQLSchema;
 import graphql.validation.ValidationError;
 
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 import static graphql.Assert.assertNotNull;
@@ -102,12 +99,10 @@ public class ChainedInstrumentation implements Instrumentation {
 
     @Override
     public PatchInstrumentationContext beginPatch(InstrumentationPatchParameters parameters) {
-        return new ChainedPatchInstrumentationContext(instrumentations.stream()
-                .map(instrumentation -> {
-                    InstrumentationState state = getState(instrumentation, parameters.getInstrumentationState());
-                    return instrumentation.beginPatch(parameters.withNewState(state));
-                })
-                .collect(toList()));
+        return new ChainedPatchInstrumentationContext(map(instrumentations, instrumentation -> {
+            InstrumentationState state = getState(instrumentation, parameters.getInstrumentationState());
+            return instrumentation.beginPatch(parameters.withNewState(state));
+        }));
     }
 
     @Override
@@ -261,18 +256,13 @@ public class ChainedInstrumentation implements Instrumentation {
         public void onFieldValuesInfo(List<FieldValueInfo> fieldValueInfoList) {
             contexts.forEach(context -> context.onFieldValuesInfo(fieldValueInfoList));
         }
-
-        @Override
-        public void onDeferredField(MergedField field) {
-            contexts.forEach(context -> context.onDeferredField(field));
-        }
     }
 
     private static class ChainedPatchInstrumentationContext implements PatchInstrumentationContext {
         private final List<PatchInstrumentationContext> contexts;
 
         ChainedPatchInstrumentationContext(List<PatchInstrumentationContext> contexts) {
-            this.contexts = Collections.unmodifiableList(contexts);
+            this.contexts = ImmutableList.copyOf(contexts);
         }
 
         @Override

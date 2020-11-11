@@ -8,7 +8,8 @@ import graphql.language.Directive;
 import java.util.List;
 import java.util.Map;
 
-import static graphql.Directives.*;
+import static graphql.Directives.IncludeDirective;
+import static graphql.Directives.SkipDirective;
 import static graphql.language.NodeUtil.directiveByName;
 
 

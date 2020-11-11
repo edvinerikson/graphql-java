@@ -5,7 +5,9 @@ import graphql.PublicApi;
 import graphql.language.Argument;
 import graphql.language.Field;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
 import java.util.function.Consumer;
 
 import static graphql.Assert.assertNotEmpty;
@@ -57,6 +59,7 @@ import static graphql.Assert.assertNotEmpty;
  */
 @PublicApi
 public class MergedField {
+
     private final ImmutableList<Field> fields;
     private final Field singleField;
     private final String name;

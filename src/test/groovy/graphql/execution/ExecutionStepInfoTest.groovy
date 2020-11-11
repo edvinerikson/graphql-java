@@ -76,7 +76,7 @@ class ExecutionStepInfoTest extends Specification {
         nonNullFieldTypeInfo.parent.type == rootType
         nonNullFieldTypeInfo.isNonNullType()
 
-        listTypeInfo.getUnwrappedNonNullType() == list(fieldType)
+        list(fieldType).isEqualTo(listTypeInfo.getUnwrappedNonNullType())
         listTypeInfo.hasParent()
         listTypeInfo.parent.type == rootType
         listTypeInfo.isListType()
@@ -229,7 +229,7 @@ class ExecutionStepInfoTest extends Specification {
         def transformed = executionStepInfo.transform({ builder -> builder })
 
         then:
-        transformed.getFieldContainer() == executionStepInfo.getFieldContainer()
+        transformed.getObjectType() == executionStepInfo.getObjectType()
     }
 
     def "step info for list of lists of abstract type"() {

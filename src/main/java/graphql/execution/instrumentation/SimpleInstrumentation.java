@@ -2,12 +2,10 @@ package graphql.execution.instrumentation;
 
 import graphql.ExecutionResult;
 import graphql.PublicApi;
-import graphql.execution.ExecutionContext;
+
 import graphql.execution.PatchExecutionResult;
 import graphql.execution.instrumentation.parameters.*;
 import graphql.language.Document;
-import graphql.schema.DataFetcher;
-import graphql.schema.GraphQLSchema;
 import graphql.validation.ValidationError;
 
 import java.util.List;
@@ -26,11 +24,6 @@ public class SimpleInstrumentation implements Instrumentation {
     public static final SimpleInstrumentation INSTANCE = new SimpleInstrumentation();
 
     public SimpleInstrumentation() {
-    }
-
-    @Override
-    public InstrumentationState createState() {
-        return null;
     }
 
     @Override
@@ -92,36 +85,4 @@ public class SimpleInstrumentation implements Instrumentation {
     public InstrumentationContext<Object> beginFieldFetch(InstrumentationFieldFetchParameters parameters) {
         return new SimpleInstrumentationContext<>();
     }
-
-
-    @Override
-    public InstrumentationContext<ExecutionResult> beginFieldComplete(InstrumentationFieldCompleteParameters parameters) {
-        return new SimpleInstrumentationContext<>();
-    }
-
-    @Override
-    public InstrumentationContext<ExecutionResult> beginFieldListComplete(InstrumentationFieldCompleteParameters parameters) {
-        return new SimpleInstrumentationContext<>();
-    }
-
-    @Override
-    public GraphQLSchema instrumentSchema(GraphQLSchema schema, InstrumentationExecutionParameters parameters) {
-        return schema;
-    }
-
-    @Override
-    public ExecutionContext instrumentExecutionContext(ExecutionContext executionContext, InstrumentationExecutionParameters parameters) {
-        return executionContext;
-    }
-
-    @Override
-    public DataFetcher<?> instrumentDataFetcher(DataFetcher<?> dataFetcher, InstrumentationFieldFetchParameters parameters) {
-        return dataFetcher;
-    }
-
-    @Override
-    public CompletableFuture<ExecutionResult> instrumentExecutionResult(ExecutionResult executionResult, InstrumentationExecutionParameters parameters) {
-        return CompletableFuture.completedFuture(executionResult);
-    }
-
 }

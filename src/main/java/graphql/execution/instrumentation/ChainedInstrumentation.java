@@ -3,19 +3,8 @@ package graphql.execution.instrumentation;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.PublicApi;
-import graphql.execution.Async;
-import graphql.execution.ExecutionContext;
-import graphql.execution.FieldValueInfo;
-import graphql.execution.MergedField;
-import graphql.execution.instrumentation.parameters.InstrumentationCreateStateParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationDeferredFieldParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldCompleteParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldFetchParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationValidationParameters;
+import graphql.execution.*;
+import graphql.execution.instrumentation.parameters.*;
 import graphql.language.Document;
 import graphql.schema.DataFetcher;
 import graphql.schema.GraphQLSchema;
@@ -122,11 +111,11 @@ public class ChainedInstrumentation implements Instrumentation {
     }
 
     @Override
-    public DeferredFieldInstrumentationContext beginDeferredField(InstrumentationDeferredFieldParameters parameters) {
-        return new ChainedDeferredExecutionStrategyInstrumentationContext(instrumentations.stream()
+    public PatchInstrumentationContext beginPatch(InstrumentationPatchParameters parameters) {
+        return new ChainedPatchInstrumentationContext(instrumentations.stream()
                 .map(instrumentation -> {
                     InstrumentationState state = getState(instrumentation, parameters.getInstrumentationState());
-                    return instrumentation.beginDeferredField(parameters.withNewState(state));
+                    return instrumentation.beginPatch(parameters.withNewState(state));
                 })
                 .collect(toList()));
     }
@@ -299,27 +288,21 @@ public class ChainedInstrumentation implements Instrumentation {
         }
     }
 
-    private static class ChainedDeferredExecutionStrategyInstrumentationContext implements DeferredFieldInstrumentationContext {
+    private static class ChainedPatchInstrumentationContext implements PatchInstrumentationContext {
+        private final List<PatchInstrumentationContext> contexts;
 
-        private final List<DeferredFieldInstrumentationContext> contexts;
-
-        ChainedDeferredExecutionStrategyInstrumentationContext(List<DeferredFieldInstrumentationContext> contexts) {
+        ChainedPatchInstrumentationContext(List<PatchInstrumentationContext> contexts) {
             this.contexts = Collections.unmodifiableList(contexts);
         }
 
         @Override
-        public void onDispatched(CompletableFuture<ExecutionResult> result) {
+        public void onDispatched(CompletableFuture<PatchExecutionResult> result) {
             contexts.forEach(context -> context.onDispatched(result));
         }
 
         @Override
-        public void onCompleted(ExecutionResult result, Throwable t) {
+        public void onCompleted(PatchExecutionResult result, Throwable t) {
             contexts.forEach(context -> context.onCompleted(result, t));
-        }
-
-        @Override
-        public void onFieldValueInfo(FieldValueInfo fieldValueInfo) {
-            contexts.forEach(context -> context.onFieldValueInfo(fieldValueInfo));
         }
     }
 }

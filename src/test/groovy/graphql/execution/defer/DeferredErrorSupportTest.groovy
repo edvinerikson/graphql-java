@@ -1,9 +1,9 @@
 package graphql.execution.defer
 
-import graphql.DeferredExecutionResult
+
 import graphql.Directives
-import graphql.ExecutionResult
 import graphql.GraphQL
+import graphql.execution.PatchExecutionResult
 import graphql.schema.DataFetcher
 import graphql.schema.DataFetchingEnvironment
 import org.reactivestreams.Publisher
@@ -61,12 +61,12 @@ class DeferredErrorSupportTest extends Specification {
         def executionResultDeferred = null
         def subscriber = new BasicSubscriber() {
             @Override
-            void onNext(DeferredExecutionResult executionResultStreamed) {
+            void onNext(PatchExecutionResult executionResultStreamed) {
                 executionResultDeferred = executionResultStreamed
                 subscription.request(1)
             }
         }
-        Publisher<ExecutionResult> deferredResultStream = executionResult.extensions[GraphQL.DEFERRED_RESULTS] as Publisher<ExecutionResult>
+        Publisher<PatchExecutionResult> deferredResultStream = executionResult.patchPublisher;
         deferredResultStream.subscribe(subscriber)
 
         await().untilTrue(subscriber.finished)

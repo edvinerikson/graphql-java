@@ -1,19 +1,18 @@
 package graphql.execution;
 
 
-import graphql.DeferredExecutionResult;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.ExecutionResultImpl;
-import graphql.GraphQL;
 import graphql.GraphQLError;
 import graphql.Internal;
-import graphql.execution.defer.DeferSupport;
 import graphql.execution.instrumentation.Instrumentation;
 import graphql.execution.instrumentation.InstrumentationContext;
 import graphql.execution.instrumentation.InstrumentationState;
+import graphql.execution.instrumentation.parameters.InstrumentationCreateStateParameters;
 import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters;
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
+import graphql.execution.instrumentation.parameters.InstrumentationPatchParameters;
 import graphql.language.Document;
 import graphql.language.FragmentDefinition;
 import graphql.language.NodeUtil;
@@ -29,6 +28,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 import static graphql.Assert.assertShouldNeverHappen;
 import static graphql.execution.ExecutionContextBuilder.newExecutionContextBuilder;
@@ -78,6 +78,8 @@ public class Execution {
             throw rte;
         }
 
+        Dispatcher dispatcher = new Dispatcher();
+
         ExecutionContext executionContext = newExecutionContextBuilder()
                 .instrumentation(instrumentation)
                 .instrumentationState(instrumentationState)
@@ -98,6 +100,7 @@ public class Execution {
                 .locale(executionInput.getLocale())
                 .valueUnboxer(valueUnboxer)
                 .executionInput(executionInput)
+                .dispatcher(dispatcher)
                 .build();
 
 
@@ -138,34 +141,36 @@ public class Execution {
                 .variables(executionContext.getVariables())
                 .build();
 
-        MergedSelectionSet fields = fieldCollector.collectFields(collectorParameters, operationDefinition.getSelectionSet());
-
+        FieldsAndPatches fieldsAndPatches = fieldCollector.collectFields(collectorParameters, operationDefinition.getSelectionSet());
+        Dispatcher dispatcher = executionContext.getDispatcher();
+        dispatcher.increaseExpectedPayloads(fieldsAndPatches.getPatches().size());
         ResultPath path = ResultPath.rootPath();
-        ExecutionStepInfo executionStepInfo = newExecutionStepInfo().type(operationRootType).path(path).build();
-        NonNullableFieldValidator nonNullableFieldValidator = new NonNullableFieldValidator(executionContext, executionStepInfo);
-
-        ExecutionStrategyParameters parameters = newParameters()
-                .executionStepInfo(executionStepInfo)
-                .source(root)
-                .localContext(executionContext.getLocalContext())
-                .fields(fields)
-                .nonNullFieldValidator(nonNullableFieldValidator)
-                .path(path)
-                .build();
 
         CompletableFuture<ExecutionResult> result;
+        ExecutionStrategy executionStrategy;
+        if (operation == OperationDefinition.Operation.MUTATION) {
+            executionStrategy = executionContext.getMutationStrategy();
+        } else if (operation == SUBSCRIPTION) {
+            executionStrategy = executionContext.getSubscriptionStrategy();
+        } else {
+            executionStrategy = executionContext.getQueryStrategy();
+        }
         try {
-            ExecutionStrategy executionStrategy;
-            if (operation == OperationDefinition.Operation.MUTATION) {
-                executionStrategy = executionContext.getMutationStrategy();
-            } else if (operation == SUBSCRIPTION) {
-                executionStrategy = executionContext.getSubscriptionStrategy();
-            } else {
-                executionStrategy = executionContext.getQueryStrategy();
-            }
+
             if (logNotSafe.isDebugEnabled()) {
                 logNotSafe.debug("Executing '{}' query operation: '{}' using '{}' execution strategy", executionContext.getExecutionId(), operation, executionStrategy.getClass().getName());
             }
+            ExecutionStepInfo executionStepInfo = newExecutionStepInfo().type(operationRootType).path(path).build();
+            NonNullableFieldValidator nonNullableFieldValidator = new NonNullableFieldValidator(executionContext, executionStepInfo);
+            ExecutionStrategyParameters parameters = newParameters()
+                    .executionStepInfo(executionStepInfo)
+                    .source(root)
+                    .localContext(executionContext.getLocalContext())
+                    .fields(fieldsAndPatches.getFields())
+                    .nonNullFieldValidator(nonNullableFieldValidator)
+                    .path(path)
+                    .build();
+
             result = executionStrategy.execute(executionContext, parameters);
         } catch (NonNullableFieldWasNullException e) {
             // this means it was non null types all the way from an offending non null type
@@ -183,28 +188,40 @@ public class Execution {
 
         result = result.whenComplete(executeOperationCtx::onCompleted);
 
-        return deferSupport(executionContext, result);
+        for (Patch patch : fieldsAndPatches.getPatches()) {
+            InstrumentationState instrumentationState = instrumentation.createState(new InstrumentationCreateStateParameters(executionContext.getGraphQLSchema(), executionContext.getExecutionInput()));
+            ExecutionContext patchExecutionContext = executionContext.transform(ExecutionContextBuilder::resetErrors).transform(builder -> builder.instrumentationState(instrumentationState));
+            ExecutionStepInfo executionStepInfo = newExecutionStepInfo().type(operationRootType).path(path).build();
+            NonNullableFieldValidator nonNullableFieldValidator = new NonNullableFieldValidator(executionContext, executionStepInfo);
+            ExecutionStrategyParameters patchParameters = newParameters()
+                    .executionStepInfo(executionStepInfo)
+                    .source(root)
+                    .localContext(executionContext.getLocalContext())
+                    .fields(patch.getFields())
+                    .nonNullFieldValidator(nonNullableFieldValidator)
+                    .path(path)
+                    .build();
+            InstrumentationPatchParameters patchInstrumentationParams = new InstrumentationPatchParameters(executionContext, () -> executionStepInfo, patch, patchExecutionContext.getInstrumentationState());
+            InstrumentationContext<PatchExecutionResult> patchCtx = instrumentation.beginPatch(patchInstrumentationParams);
+            Supplier<CompletableFuture<Object>> futureExecutionResult = () -> executionStrategy.execute(patchExecutionContext, patchParameters).thenApply(ExecutionResult::getData);
+            dispatcher.addFields(patch.getLabel(), path, futureExecutionResult, patchExecutionContext::getErrors, patchCtx);
+        }
+
+        return patchSupport(executionContext, result);
     }
 
-    /*
-     * Adds the deferred publisher if its needed at the end of the query.
-     */
-    private CompletableFuture<ExecutionResult> deferSupport(ExecutionContext executionContext, CompletableFuture<ExecutionResult> result) {
-        return result.thenApply(er -> {
-            DeferSupport deferSupport = executionContext.getDeferSupport();
-            if (deferSupport.isDeferDetected()) {
-                // we start the rest of the query now to maximize throughput.  We have the initial important results
-                // and now we can start the rest of the calls as early as possible (even before some one subscribes)
-                Publisher<DeferredExecutionResult> publisher = deferSupport.startDeferredCalls();
-                return ExecutionResultImpl.newExecutionResult().from(er)
+    private CompletableFuture<ExecutionResult> patchSupport(ExecutionContext executionContext, CompletableFuture<ExecutionResult> result) {
+        return result.thenApply(firstPayload -> {
+            Dispatcher dispatcher = executionContext.getDispatcher();
+            if (dispatcher.hasSubsequentPayloads()) {
+                Publisher<PatchExecutionResult> publisher = dispatcher.getPublisher();
+                return ExecutionResultImpl.newExecutionResult().from(firstPayload)
                         .hasNext(true)
-                        .addExtension(GraphQL.DEFERRED_RESULTS, publisher)
+                        .patchPublisher(publisher)
                         .build();
-
             }
-            return er;
+            return firstPayload;
         });
-
     }
 
     private GraphQLObjectType getOperationRootType(GraphQLSchema graphQLSchema, OperationDefinition operationDefinition) {

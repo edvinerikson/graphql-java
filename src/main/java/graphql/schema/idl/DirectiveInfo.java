@@ -30,6 +30,8 @@ public class DirectiveInfo {
         GRAPHQL_SPECIFICATION_DIRECTIVES.add(Directives.SkipDirective);
         GRAPHQL_SPECIFICATION_DIRECTIVES.add(Directives.DeprecatedDirective);
         GRAPHQL_SPECIFICATION_DIRECTIVES.add(Directives.SpecifiedByDirective);
+        GRAPHQL_SPECIFICATION_DIRECTIVES.add(Directives.DeferDirective);
+        GRAPHQL_SPECIFICATION_DIRECTIVES.add(Directives.StreamDirective);
     }
 
     static {
@@ -37,6 +39,8 @@ public class DirectiveInfo {
         GRAPHQL_SPECIFICATION_DIRECTIVE_MAP.put(Directives.SkipDirective.getName(), Directives.SkipDirective);
         GRAPHQL_SPECIFICATION_DIRECTIVE_MAP.put(Directives.DeprecatedDirective.getName(), Directives.DeprecatedDirective);
         GRAPHQL_SPECIFICATION_DIRECTIVE_MAP.put(Directives.SpecifiedByDirective.getName(), Directives.SpecifiedByDirective);
+        GRAPHQL_SPECIFICATION_DIRECTIVE_MAP.put(Directives.DeferDirective.getName(), Directives.DeferDirective);
+        GRAPHQL_SPECIFICATION_DIRECTIVE_MAP.put(Directives.StreamDirective.getName(), Directives.StreamDirective);
     }
 
 

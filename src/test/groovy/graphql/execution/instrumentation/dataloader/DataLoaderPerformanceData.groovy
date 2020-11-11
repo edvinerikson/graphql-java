@@ -248,30 +248,36 @@ class DataLoaderPerformanceData {
             """
 
     static def expectedExpensiveDeferredData = [
-            [expensiveShops: [[id: "exshop-1", name: "ExShop 1"], [id: "exshop-2", name: "ExShop 2"], [id: "exshop-3", name: "ExShop 3"]]],
-            [departments: [[name: "Department 1"], [name: "Department 2"], [name: "Department 3"]]],
-            [expensiveDepartments: [[name: "Department 1", products: [[name: "Product 1"]], expensiveProducts: [[name: "Product 1"]]], [name: "Department 2", products: [[name: "Product 2"]], expensiveProducts: [[name: "Product 2"]]], [name: "Department 3", products: [[name: "Product 3"]], expensiveProducts: [[name: "Product 3"]]]]],
-            [departments: [[name: "Department 4"], [name: "Department 5"], [name: "Department 6"]]],
-            [expensiveDepartments: [[name: "Department 4", products: [[name: "Product 4"]], expensiveProducts: [[name: "Product 4"]]], [name: "Department 5", products: [[name: "Product 5"]], expensiveProducts: [[name: "Product 5"]]], [name: "Department 6", products: [[name: "Product 6"]], expensiveProducts: [[name: "Product 6"]]]]],
-            [departments: [[name: "Department 7"], [name: "Department 8"], [name: "Department 9"]]],
-            [expensiveDepartments: [[name: "Department 7", products: [[name: "Product 7"]], expensiveProducts: [[name: "Product 7"]]], [name: "Department 8", products: [[name: "Product 8"]], expensiveProducts: [[name: "Product 8"]]], [name: "Department 9", products: [[name: "Product 9"]], expensiveProducts: [[name: "Product 9"]]]]],
-            [products: [[name: "Product 1"]]],
-            [expensiveProducts: [[name: "Product 1"]]],
-            [products: [[name: "Product 2"]]],
-            [expensiveProducts: [[name: "Product 2"]]],
-            [products: [[name: "Product 3"]]],
-            [expensiveProducts: [[name: "Product 3"]]],
-            [products: [[name: "Product 4"]]],
-            [expensiveProducts: [[name: "Product 4"]]],
-            [products: [[name: "Product 5"]]],
             [expensiveProducts: [[name: "Product 5"]]],
-            [products: [[name: "Product 6"]]],
             [expensiveProducts: [[name: "Product 6"]]],
-            [products: [[name: "Product 7"]]],
             [expensiveProducts: [[name: "Product 7"]]],
-            [products: [[name: "Product 8"]]],
             [expensiveProducts: [[name: "Product 8"]]],
-            [products: [[name: "Product 9"]]],
+            [expensiveProducts: [[name: "Product 1"]]],
+            [expensiveProducts: [[name: "Product 2"]]],
+            [expensiveProducts: [[name: "Product 3"]]],
+            [expensiveProducts: [[name: "Product 4"]]],
             [expensiveProducts: [[name: "Product 9"]]],
+            [products: [[name: "Product 4"]]],
+            [products: [[name: "Product 9"]]],
+            [products: [[name: "Product 7"]]],
+            [products: [[name: "Product 6"]]],
+            [products: [[name: "Product 5"]]],
+            [products: [[name: "Product 3"]]],
+            [products: [[name: "Product 2"]]],
+            [products: [[name: "Product 1"]]],
+            [products: [[name: "Product 8"]]],
+            [departments: [[name: "Department 4"], [name: "Department 5"], [name: "Department 6"]]],
+            [departments: [[name: "Department 7"], [name: "Department 8"], [name: "Department 9"]]],
+            [departments: [[name: "Department 1"], [name: "Department 2"], [name: "Department 3"]]],
+            [expensiveShops: [[id: "exshop-1", name: "ExShop 1"], [id: "exshop-2", name: "ExShop 2"], [id: "exshop-3", name: "ExShop 3"]]],
+            [expensiveDepartments: [[name: "Department 1", products: [[name: "Product 1"]], expensiveProducts: [[name: "Product 1"]]], [name: "Department 2", products: [[name: "Product 2"]], expensiveProducts: [[name: "Product 2"]]], [name: "Department 3", products: [[name: "Product 3"]], expensiveProducts: [[name: "Product 3"]]]]],
+            [expensiveDepartments: [[name: "Department 4", products: [[name: "Product 4"]], expensiveProducts: [[name: "Product 4"]]], [name: "Department 5", products: [[name: "Product 5"]], expensiveProducts: [[name: "Product 5"]]], [name: "Department 6", products: [[name: "Product 6"]], expensiveProducts: [[name: "Product 6"]]]]],
+            [expensiveDepartments: [[name: "Department 7", products: [[name: "Product 7"]], expensiveProducts: [[name: "Product 7"]]], [name: "Department 8", products: [[name: "Product 8"]], expensiveProducts: [[name: "Product 8"]]], [name: "Department 9", products: [[name: "Product 9"]], expensiveProducts: [[name: "Product 9"]]]]],
+
+
+
+
+
+
     ]
 }

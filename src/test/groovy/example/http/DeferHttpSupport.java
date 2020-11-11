@@ -1,8 +1,8 @@
 package example.http;
 
-import graphql.DeferredExecutionResult;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
+import graphql.execution.PatchExecutionResult;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
 import org.reactivestreams.Subscription;
@@ -19,7 +19,7 @@ public class DeferHttpSupport {
 
     @SuppressWarnings("unchecked")
     static void sendDeferredResponse(HttpServletResponse response, ExecutionResult executionResult, Map<Object, Object> extensions) {
-        Publisher<DeferredExecutionResult> deferredResults = (Publisher<DeferredExecutionResult>) extensions.get(GraphQL.DEFERRED_RESULTS);
+        Publisher<PatchExecutionResult> deferredResults = executionResult.getPatchPublisher();
         try {
             sendMultipartResponse(response, executionResult, deferredResults);
         } catch (Exception e) {
@@ -28,7 +28,7 @@ public class DeferHttpSupport {
         }
     }
 
-    static private void sendMultipartResponse(HttpServletResponse response, ExecutionResult executionResult, Publisher<DeferredExecutionResult> deferredResults) {
+    static private void sendMultipartResponse(HttpServletResponse response, ExecutionResult executionResult, Publisher<PatchExecutionResult> deferredResults) {
         // this implements this apollo defer spec: https://github.com/apollographql/apollo-server/blob/defer-support/docs/source/defer-support.md
         // the spec says CRLF + "-----" + CRLF is needed at the end, but it works without it and with it we get client
         // side errors with it, so we skp it
@@ -42,7 +42,7 @@ public class DeferHttpSupport {
 
         // now send each deferred part which is given to us as a reactive stream
         // of deferred values
-        deferredResults.subscribe(new Subscriber<DeferredExecutionResult>() {
+        deferredResults.subscribe(new Subscriber<PatchExecutionResult>() {
             Subscription subscription;
 
             @Override
@@ -52,7 +52,7 @@ public class DeferHttpSupport {
             }
 
             @Override
-            public void onNext(DeferredExecutionResult deferredExecutionResult) {
+            public void onNext(PatchExecutionResult deferredExecutionResult) {
                 subscription.request(1);
 
                 writeAndFlushPart(response, deferredExecutionResult.toSpecification());

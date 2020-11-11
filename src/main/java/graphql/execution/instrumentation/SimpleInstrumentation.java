@@ -3,14 +3,8 @@ package graphql.execution.instrumentation;
 import graphql.ExecutionResult;
 import graphql.PublicApi;
 import graphql.execution.ExecutionContext;
-import graphql.execution.instrumentation.parameters.InstrumentationDeferredFieldParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldCompleteParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldFetchParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationValidationParameters;
+import graphql.execution.PatchExecutionResult;
+import graphql.execution.instrumentation.parameters.*;
 import graphql.language.Document;
 import graphql.schema.DataFetcher;
 import graphql.schema.GraphQLSchema;
@@ -70,15 +64,15 @@ public class SimpleInstrumentation implements Instrumentation {
     }
 
     @Override
-    public DeferredFieldInstrumentationContext beginDeferredField(InstrumentationDeferredFieldParameters parameters) {
-        return new DeferredFieldInstrumentationContext() {
+    public PatchInstrumentationContext beginPatch(InstrumentationPatchParameters parameters) {
+        return new PatchInstrumentationContext() {
             @Override
-            public void onDispatched(CompletableFuture<ExecutionResult> result) {
+            public void onDispatched(CompletableFuture<PatchExecutionResult> result) {
 
             }
 
             @Override
-            public void onCompleted(ExecutionResult result, Throwable t) {
+            public void onCompleted(PatchExecutionResult result, Throwable t) {
 
             }
         };

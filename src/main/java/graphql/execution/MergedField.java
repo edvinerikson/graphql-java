@@ -57,20 +57,17 @@ import static java.util.Collections.unmodifiableList;
  */
 @PublicApi
 public class MergedField {
-
-    private final Set<DeferFragment> deferredFragments;
     private final List<Field> fields;
     private final Field singleField;
     private final String name;
     private final String resultKey;
 
-    private MergedField(List<Field> fields, Set<DeferFragment> deferredFragments) {
+    private MergedField(List<Field> fields) {
         assertNotEmpty(fields);
         this.fields = unmodifiableList(new ArrayList<>(fields));
         this.singleField = fields.get(0);
         this.name = singleField.getName();
         this.resultKey = singleField.getAlias() != null ? singleField.getAlias() : name;
-        this.deferredFragments = deferredFragments;
     }
 
     /**
@@ -137,10 +134,6 @@ public class MergedField {
         return new Builder().fields(fields);
     }
 
-    public Set<DeferFragment> getDeferredFragments() {
-        return deferredFragments;
-    }
-
     public MergedField transform(Consumer<Builder> builderConsumer) {
         Builder builder = new Builder(this);
         builderConsumer.accept(builder);
@@ -149,16 +142,13 @@ public class MergedField {
 
     public static class Builder {
         private List<Field> fields;
-        private Set<DeferFragment> deferredFragments;
 
         private Builder() {
             this.fields = new ArrayList<>();
-            this.deferredFragments = new LinkedHashSet<>();
         }
 
         private Builder(MergedField existing) {
             this.fields = new ArrayList<>(existing.getFields());
-            this.deferredFragments = new LinkedHashSet<>(existing.getDeferredFragments());
         }
 
         public Builder fields(List<Field> fields) {
@@ -171,18 +161,8 @@ public class MergedField {
             return this;
         }
 
-        public Builder deferredFragments(Set<DeferFragment> deferredFragments) {
-            this.deferredFragments = deferredFragments;
-            return this;
-        }
-
-        public Builder addDeferredFragment(DeferFragment deferFragment) {
-            this.deferredFragments.add(deferFragment);
-            return this;
-        }
-
         public MergedField build() {
-            return new MergedField(fields, deferredFragments);
+            return new MergedField(fields);
         }
 
 

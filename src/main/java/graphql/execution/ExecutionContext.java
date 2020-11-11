@@ -3,10 +3,8 @@ package graphql.execution;
 
 import graphql.ExecutionInput;
 import graphql.GraphQLError;
-import graphql.Internal;
 import graphql.PublicApi;
 import graphql.cachecontrol.CacheControl;
-import graphql.execution.defer.DeferSupport;
 import graphql.execution.instrumentation.Instrumentation;
 import graphql.execution.instrumentation.InstrumentationState;
 import graphql.language.Document;
@@ -47,9 +45,9 @@ public class ExecutionContext {
     private final DataLoaderRegistry dataLoaderRegistry;
     private final CacheControl cacheControl;
     private final Locale locale;
-    private final DeferSupport deferSupport;
     private final ValueUnboxer valueUnboxer;
     private final ExecutionInput executionInput;
+    private final Dispatcher dispatcher;
 
     ExecutionContext(ExecutionContextBuilder builder) {
         this.graphQLSchema = builder.graphQLSchema;
@@ -72,7 +70,7 @@ public class ExecutionContext {
         this.errors.addAll(builder.errors);
         this.localContext = builder.localContext;
         this.executionInput = builder.executionInput;
-        this.deferSupport = builder.deferSupport == null ? new DeferSupport() : builder.deferSupport;
+        this.dispatcher = builder.dispatcher;
     }
 
 
@@ -199,8 +197,8 @@ public class ExecutionContext {
         return subscriptionStrategy;
     }
 
-    public DeferSupport getDeferSupport() {
-        return deferSupport;
+    public Dispatcher getDispatcher() {
+        return dispatcher;
     }
 
     /**

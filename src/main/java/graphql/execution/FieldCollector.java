@@ -3,20 +3,17 @@ package graphql.execution;
 
 import graphql.Directives;
 import graphql.Internal;
-import graphql.execution.defer.DeferSupport;
 import graphql.language.*;
 import graphql.schema.GraphQLInterfaceType;
 import graphql.schema.GraphQLObjectType;
 import graphql.schema.GraphQLType;
 import graphql.schema.GraphQLUnionType;
 
-import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
+import static graphql.execution.FieldsAndPatches.newFieldsAndPatches;
 import static graphql.execution.MergedSelectionSet.newMergedSelectionSet;
+import static graphql.execution.Patch.newPatch;
 import static graphql.execution.TypeFromAST.getTypeFromAST;
 
 /**
@@ -28,19 +25,22 @@ public class FieldCollector {
 
     private final ConditionalNodes conditionalNodes = new ConditionalNodes();
     private final ValuesResolver valuesResolver = new ValuesResolver();
-    private final DeferSupport deferSupport = new DeferSupport();
 
-    public MergedSelectionSet collectFields(FieldCollectorParameters parameters, MergedField mergedField) {
+    public FieldsAndPatches collectFields(FieldCollectorParameters parameters, MergedField mergedField) {
         Map<String, MergedField> subFields = new LinkedHashMap<>();
         Set<String> visitedFragments = new LinkedHashSet<>();
-        Set<DeferFragment> deferredFragments = new LinkedHashSet<>();
+        List<Patch> patches = new LinkedList<>();
         for (Field field : mergedField.getFields()) {
             if (field.getSelectionSet() == null) {
                 continue;
             }
-            this.collectFields(parameters, field.getSelectionSet(), visitedFragments, subFields, deferredFragments);
+            this.collectFields(parameters, field.getSelectionSet(), visitedFragments, subFields, patches);
         }
-        return newMergedSelectionSet().subFields(subFields).deferredFragments(deferredFragments).build();
+        MergedSelectionSet fields = newMergedSelectionSet()
+                .subFields(subFields)
+                .build();
+
+        return newFieldsAndPatches().fields(fields).patches(patches).build();
     }
 
     /**
@@ -51,29 +51,31 @@ public class FieldCollector {
      *
      * @return a map of the sub field selections
      */
-    public MergedSelectionSet collectFields(FieldCollectorParameters parameters, SelectionSet selectionSet) {
+    public FieldsAndPatches collectFields(FieldCollectorParameters parameters, SelectionSet selectionSet) {
         Map<String, MergedField> subFields = new LinkedHashMap<>();
         Set<String> visitedFragments = new LinkedHashSet<>();
-        Set<DeferFragment> deferredFragments = new LinkedHashSet<>();
-        this.collectFields(parameters, selectionSet, visitedFragments, subFields, deferredFragments);
-        return newMergedSelectionSet().subFields(subFields).deferredFragments(deferredFragments).build();
+        List<Patch> patches = new LinkedList<>();
+        this.collectFields(parameters, selectionSet, visitedFragments, subFields, patches);
+        MergedSelectionSet fields = newMergedSelectionSet().subFields(subFields).build();
+
+        return newFieldsAndPatches().fields(fields).patches(patches).build();
     }
 
 
-    private void collectFields(FieldCollectorParameters parameters, SelectionSet selectionSet, Set<String> visitedFragments, Map<String, MergedField> fields, Set<DeferFragment> deferredFragments) {
+    private void collectFields(FieldCollectorParameters parameters, SelectionSet selectionSet, Set<String> visitedFragments, Map<String, MergedField> fields, List<Patch> patches) {
 
         for (Selection selection : selectionSet.getSelections()) {
             if (selection instanceof Field) {
-                collectField(parameters, fields, (Field) selection,  deferredFragments);
+                collectField(parameters, fields, (Field) selection);
             } else if (selection instanceof InlineFragment) {
-                collectInlineFragment(parameters, visitedFragments, fields, (InlineFragment) selection, deferredFragments);
+                collectInlineFragment(parameters, visitedFragments, fields, (InlineFragment) selection, patches);
             } else if (selection instanceof FragmentSpread) {
-                collectFragmentSpread(parameters, visitedFragments, fields, (FragmentSpread) selection, deferredFragments);
+                collectFragmentSpread(parameters, visitedFragments, fields, (FragmentSpread) selection, patches);
             }
         }
     }
 
-    private void collectFragmentSpread(FieldCollectorParameters parameters, Set<String> visitedFragments, Map<String, MergedField> fields, FragmentSpread fragmentSpread, Set<DeferFragment> deferredFragments) {
+    private void collectFragmentSpread(FieldCollectorParameters parameters, Set<String> visitedFragments, Map<String, MergedField> fields, FragmentSpread fragmentSpread, List<Patch> patches) {
         if (visitedFragments.contains(fragmentSpread.getName())) {
             return;
         }
@@ -90,41 +92,40 @@ public class FieldCollector {
             return;
         }
 
-        if (deferSupport.checkForDeferDirective(fragmentSpread, parameters.getVariables())) {
-            deferFragment(parameters, fragmentSpread, fragmentDefinition.getSelectionSet(), deferredFragments);
+        if (isDeferred(parameters, fragmentSpread)) {
+            deferFragment(parameters, fragmentSpread, fragmentDefinition.getSelectionSet(), patches);
             return;
         }
 
         visitedFragments.add(fragmentSpread.getName());
 
-        collectFields(parameters, fragmentDefinition.getSelectionSet(), visitedFragments, fields, deferredFragments);
+        collectFields(parameters, fragmentDefinition.getSelectionSet(), visitedFragments, fields, patches);
     }
 
-    private void collectInlineFragment(FieldCollectorParameters parameters, Set<String> visitedFragments, Map<String, MergedField> fields, InlineFragment inlineFragment, Set<DeferFragment> deferredFragments) {
+    private void collectInlineFragment(FieldCollectorParameters parameters, Set<String> visitedFragments, Map<String, MergedField> fields, InlineFragment inlineFragment, List<Patch> patches) {
         if (!conditionalNodes.shouldInclude(parameters.getVariables(), inlineFragment.getDirectives()) ||
                 !doesFragmentConditionMatch(parameters, inlineFragment)) {
             return;
         }
 
-        if (deferSupport.checkForDeferDirective(inlineFragment, parameters.getVariables())) {
-            deferFragment(parameters, inlineFragment, deferredFragments);
+        if (isDeferred(parameters, inlineFragment)) {
+            deferFragment(parameters, inlineFragment, inlineFragment.getSelectionSet(), patches);
             return;
         }
 
-        collectFields(parameters, inlineFragment.getSelectionSet(), visitedFragments, fields, deferredFragments);
+        collectFields(parameters, inlineFragment.getSelectionSet(), visitedFragments, fields, patches);
     }
 
-    private void collectField(FieldCollectorParameters parameters, Map<String, MergedField> fields, Field field, Set<DeferFragment> deferredFragments) {
+    private void collectField(FieldCollectorParameters parameters, Map<String, MergedField> fields, Field field) {
         if (!conditionalNodes.shouldInclude(parameters.getVariables(), field.getDirectives())) {
             return;
         }
         String name = getFieldEntryKey(field);
         if (fields.containsKey(name)) {
             MergedField curFields = fields.get(name);
-            deferredFragments.addAll(curFields.getDeferredFragments());
-            fields.put(name, curFields.transform(builder -> builder.addField(field).deferredFragments(deferredFragments)));
+            fields.put(name, curFields.transform(builder -> builder.addField(field)));
         } else {
-            fields.put(name, MergedField.newMergedField(field).deferredFragments(deferredFragments).build());
+            fields.put(name, MergedField.newMergedField(field).build());
         }
     }
 
@@ -167,22 +168,29 @@ public class FieldCollector {
         return false;
     }
 
-    private void deferFragment(FieldCollectorParameters parameters, FragmentSpread fragmentSpread, SelectionSet selectionSet, Set<DeferFragment> deferredFragments) {
-        Directive directive = fragmentSpread.getDirective(Directives.DeferDirective.getName());
-        deferFragment(parameters, directive.getArguments(), selectionSet, deferredFragments);
+    private Boolean isDeferred(FieldCollectorParameters parameters, DirectivesContainer<?> container) {
+        Directive directive = container.getDirective(Directives.DeferDirective.getName());
+        if (directive != null) {
+            Map<String, Object> values = valuesResolver.getArgumentValues(Directives.DeferDirective.getArguments(), directive.getArguments(), parameters.getVariables());
+            Object ifValue = values.get("if");
+            return !Boolean.FALSE.equals(ifValue);
+        }
+
+        return false;
     }
 
-    private void deferFragment(FieldCollectorParameters parameters, InlineFragment inlineFragment, Set<DeferFragment> deferredFragments) {
-        Directive directive = inlineFragment.getDirective(Directives.DeferDirective.getName());
-        deferFragment(parameters, directive.getArguments(), inlineFragment.getSelectionSet(), deferredFragments);
-    }
+    private void deferFragment(FieldCollectorParameters parameters, DirectivesContainer<?> container, SelectionSet selectionSet, List<Patch> patches) {
+        Directive directive = container.getDirective(Directives.DeferDirective.getName());
+        Map<String, Object> values = valuesResolver.getArgumentValues(Directives.DeferDirective.getArguments(), directive.getArguments(), parameters.getVariables());
 
-    private void deferFragment(FieldCollectorParameters parameters, List<Argument> arguments, SelectionSet selectionSet, Set<DeferFragment> deferredFragments) {
-        Map<String, Object> values = valuesResolver.getArgumentValues(Directives.DeferDirective.getArguments(), arguments, parameters.getVariables());
-        DeferFragment fragment = DeferFragment.newDeferFragment()
+        FieldsAndPatches fieldsAndPatches = collectFields(parameters, selectionSet);
+
+        Patch patch = newPatch()
+                .fields(fieldsAndPatches.getFields())
                 .label((String)values.get("label"))
-                .selectionSet(collectFields(parameters, selectionSet))
                 .build();
-        deferredFragments.add(fragment);
+
+        patches.add(patch);
+        patches.addAll(fieldsAndPatches.getPatches());
     }
 }

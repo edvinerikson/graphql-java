@@ -4,15 +4,7 @@ import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.PublicSpi;
 import graphql.execution.ExecutionContext;
-import graphql.execution.instrumentation.parameters.InstrumentationCreateStateParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationDeferredFieldParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldCompleteParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldFetchParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationValidationParameters;
+import graphql.execution.instrumentation.parameters.*;
 import graphql.language.Document;
 import graphql.schema.DataFetcher;
 import graphql.schema.GraphQLSchema;
@@ -108,13 +100,13 @@ public interface Instrumentation {
     ExecutionStrategyInstrumentationContext beginExecutionStrategy(InstrumentationExecutionStrategyParameters parameters);
 
     /**
-     * This is called just before a deferred field is resolved into a value.
+     * This is called just before a patch is resolved into a value.
      *
      * @param parameters the parameters to this step
      *
      * @return a non null {@link InstrumentationContext} object that will be called back when the step ends
      */
-    DeferredFieldInstrumentationContext beginDeferredField(InstrumentationDeferredFieldParameters parameters);
+    PatchInstrumentationContext beginPatch(InstrumentationPatchParameters parameters);
 
     /**
      * This is called each time a subscription field produces a new reactive stream event value and it needs to be mapped over via the graphql field subselection.

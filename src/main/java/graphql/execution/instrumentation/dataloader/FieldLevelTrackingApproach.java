@@ -5,19 +5,16 @@ import graphql.ExecutionResult;
 import graphql.Internal;
 import graphql.execution.FieldValueInfo;
 import graphql.execution.MergedField;
+import graphql.execution.PatchExecutionResult;
 import graphql.execution.ResultPath;
-import graphql.execution.instrumentation.DeferredFieldInstrumentationContext;
+import graphql.execution.instrumentation.*;
 
-import graphql.execution.instrumentation.ExecutionStrategyInstrumentationContext;
-import graphql.execution.instrumentation.InstrumentationContext;
-import graphql.execution.instrumentation.InstrumentationState;
-import graphql.execution.instrumentation.parameters.InstrumentationDeferredFieldParameters;
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters;
 import graphql.execution.instrumentation.parameters.InstrumentationFieldFetchParameters;
+import graphql.execution.instrumentation.parameters.InstrumentationPatchParameters;
 import org.dataloader.DataLoaderRegistry;
 import org.slf4j.Logger;
 
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -206,32 +203,24 @@ public class FieldLevelTrackingApproach {
         return result;
     }
 
-    DeferredFieldInstrumentationContext beginDeferredField(InstrumentationDeferredFieldParameters parameters) {
+    PatchInstrumentationContext beginPatch(InstrumentationPatchParameters parameters) {
         CallStack callStack = parameters.getInstrumentationState();
-        int level = parameters.getExecutionStrategyParameters().getPath().getLevel();
+        int parentLevel = parameters.getExecutionStepInfo().getPath().getLevel();
+        int curLevel = parentLevel + 1;
         synchronized (callStack) {
-            callStack.clearAndMarkCurrentLevelAsReady(level);
+            dispatch();
+            callStack.increaseExpectedStrategyCalls(curLevel, 1);
         }
 
-        return new DeferredFieldInstrumentationContext() {
+        return new PatchInstrumentationContext() {
             @Override
-            public void onDispatched(CompletableFuture<ExecutionResult> result) {
+            public void onDispatched(CompletableFuture<PatchExecutionResult> result) {
 
             }
 
             @Override
-            public void onCompleted(ExecutionResult result, Throwable t) {
-            }
+            public void onCompleted(PatchExecutionResult result, Throwable t) {
 
-            @Override
-            public void onFieldValueInfo(FieldValueInfo fieldValueInfo) {
-                boolean dispatchNeeded;
-                synchronized (callStack) {
-                    dispatchNeeded = handleOnFieldValuesInfo(Collections.singletonList(fieldValueInfo), callStack, level);
-                }
-                if (dispatchNeeded) {
-                    dispatch();
-                }
             }
         };
     }

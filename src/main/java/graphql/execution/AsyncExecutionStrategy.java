@@ -2,23 +2,15 @@ package graphql.execution;
 
 import graphql.ExecutionResult;
 import graphql.PublicApi;
-import graphql.execution.defer.DeferSupport;
-import graphql.execution.defer.DeferredCall;
 
-import graphql.execution.instrumentation.DeferredFieldInstrumentationContext;
 import graphql.execution.instrumentation.ExecutionStrategyInstrumentationContext;
 import graphql.execution.instrumentation.Instrumentation;
-import graphql.execution.instrumentation.parameters.InstrumentationDeferredFieldParameters;
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters;
-import graphql.schema.GraphQLFieldDefinition;
-import graphql.schema.GraphQLObjectType;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.BiConsumer;
-import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 /**
@@ -69,14 +61,6 @@ public class AsyncExecutionStrategy extends AbstractAsyncExecutionStrategy {
             futures.add(future);
         }
 
-        for (DeferFragment deferredFragment : fields.getDeferredFragments()) {
-            for (MergedField field : deferredFragment.getSelectionSet().getSubFieldsList()) {
-                executionStrategyCtx.onDeferredField(field);
-                defer(executionContext, parameters, deferredFragment);
-            }
-
-        }
-
         CompletableFuture<ExecutionResult> overallResult = new CompletableFuture<>();
         executionStrategyCtx.onDispatched(overallResult);
 
@@ -99,52 +83,5 @@ public class AsyncExecutionStrategy extends AbstractAsyncExecutionStrategy {
 
         overallResult.whenComplete(executionStrategyCtx::onCompleted);
         return overallResult;
-    }
-
-    private CompletableFuture<ExecutionResult> resolveDeferredExecutionResult(ExecutionContext executionContext, ExecutionStrategyParameters parameters) {
-        GraphQLFieldDefinition fieldDef = getFieldDef(executionContext, parameters, parameters.getField().getSingleField());
-        GraphQLObjectType fieldContainer = (GraphQLObjectType) parameters.getExecutionStepInfo().getUnwrappedNonNullType();
-
-        Instrumentation instrumentation = executionContext.getInstrumentation();
-        DeferredFieldInstrumentationContext fieldCtx = instrumentation.beginDeferredField(
-                new InstrumentationDeferredFieldParameters(executionContext, parameters, () -> createExecutionStepInfo(executionContext, parameters, fieldDef, fieldContainer))
-        );
-        CompletableFuture<ExecutionResult> result = new CompletableFuture<>();
-        fieldCtx.onDispatched(result);
-        CompletableFuture<FieldValueInfo> fieldValueInfoFuture = resolveFieldWithInfo(executionContext, parameters);
-
-        fieldValueInfoFuture.whenComplete((fieldValueInfo, throwable) -> {
-            fieldCtx.onFieldValueInfo(fieldValueInfo);
-
-            CompletableFuture<ExecutionResult> execResultFuture = fieldValueInfo.getFieldValue();
-            execResultFuture = execResultFuture.whenComplete(fieldCtx::onCompleted);
-            Async.copyResults(execResultFuture, result);
-        });
-        return result;
-    }
-
-    private void defer(ExecutionContext executionContext, ExecutionStrategyParameters parameters, DeferFragment deferFragment) {
-        DeferSupport deferSupport = executionContext.getDeferSupport();
-
-        ExecutionContext callExecutionContext = executionContext.transform(ExecutionContextBuilder::resetErrors);
-
-        ExecutionStrategyParameters callParameters = parameters.transform(builder ->
-                {
-                    builder
-                            .field(null)
-                            .fields(deferFragment.getSelectionSet())
-                            .parent(null) // this is a break in the parent -> child chain - its a new start effectively
-                            .listSize(0)
-                            .currentListIndex(0);
-                }
-        );
-
-        DeferredCall call = new DeferredCall(parameters.getPath(), deferredExecutionResult(callExecutionContext, callParameters), deferFragment.getLabel());
-        deferSupport.enqueue(call);
-    }
-
-    @SuppressWarnings("FutureReturnValueIgnored")
-    private Supplier<CompletableFuture<ExecutionResult>> deferredExecutionResult(ExecutionContext executionContext, ExecutionStrategyParameters parameters) {
-        return () -> execute(executionContext, parameters);
     }
 }

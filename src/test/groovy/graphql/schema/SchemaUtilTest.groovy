@@ -43,7 +43,7 @@ class SchemaUtilTest extends Specification {
         when:
         Map<String, GraphQLType> types = new SchemaUtil().allTypes(starWarsSchema, Collections.emptySet(), false)
         then:
-        types.size() == 17
+        types.size() == 18
         types == [(droidType.name)                        : droidType,
                   (humanType.name)                        : humanType,
                   (queryType.name)                        : queryType,
@@ -60,7 +60,8 @@ class SchemaUtilTest extends Specification {
                   (Introspection.__EnumValue.name)        : Introspection.__EnumValue,
                   (Introspection.__Directive.name)        : Introspection.__Directive,
                   (Introspection.__DirectiveLocation.name): Introspection.__DirectiveLocation,
-                  (GraphQLBoolean.name)                   : GraphQLBoolean]
+                  (GraphQLBoolean.name)                   : GraphQLBoolean,
+                  (GraphQLInt.name)                       : GraphQLInt]
     }
 
     def "collectAllTypesNestedInput"() {
@@ -90,7 +91,7 @@ class SchemaUtilTest extends Specification {
         when:
         Map<String, GraphQLType> types = new SchemaUtil().allTypes(SchemaWithReferences, Collections.emptySet(), false)
         then:
-        types.size() == 30
+        types.size() == 31
         types.containsValue(UnionDirectiveInput)
         types.containsValue(InputObjectDirectiveInput)
         types.containsValue(ObjectDirectiveInput)

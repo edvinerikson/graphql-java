@@ -80,7 +80,7 @@ public class ExecutionHelper {
                 .variables(executionContext.getVariables())
                 .build();
 
-        MergedSelectionSet mergedSelectionSet = fieldCollector.collectFields(collectorParameters, operationDefinition.getSelectionSet());
+        MergedSelectionSet mergedSelectionSet = fieldCollector.collectFields(collectorParameters, operationDefinition.getSelectionSet()).getFields();
         ExecutionStepInfo executionInfo = newExecutionStepInfo().type(operationRootType).path(ResultPath.rootPath()).build();
 
         FieldSubSelection fieldSubSelection = FieldSubSelection.newFieldSubSelection()

@@ -916,6 +916,24 @@ directive @skip(
     if: Boolean!
   ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
+"Directs the executor to defer this fragment when the `if` argument is true or undefined."
+directive @defer(
+    "Deferred when true or undefined."
+    if: Boolean, 
+    "Unique name"
+    label: String
+  ) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"Directs the executor to stream plural fields when the `if` argument is true or undefined."
+directive @stream(
+    "Stream when true or undefined."
+    if: Boolean, 
+    "Number of items to return immediately"
+    initialCount: Int!, 
+    "Unique name"
+    label: String
+  ) on FIELD
+
 directive @interfaceFieldDirective on FIELD_DEFINITION
 
 directive @unionTypeDirective on UNION
@@ -1081,6 +1099,24 @@ directive @skip(
     if: Boolean!
   ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
+"Directs the executor to defer this fragment when the `if` argument is true or undefined."
+directive @defer(
+    "Deferred when true or undefined."
+    if: Boolean, 
+    "Unique name"
+    label: String
+  ) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"Directs the executor to stream plural fields when the `if` argument is true or undefined."
+directive @stream(
+    "Stream when true or undefined."
+    if: Boolean, 
+    "Number of items to return immediately"
+    initialCount: Int!, 
+    "Unique name"
+    label: String
+  ) on FIELD
+
 "Marks the field or enum value as deprecated"
 directive @deprecated(
     "The reason for the deprecation"
@@ -1166,6 +1202,24 @@ directive @skip(
     if: Boolean!
   ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
 
+"Directs the executor to defer this fragment when the `if` argument is true or undefined."
+directive @defer(
+    "Deferred when true or undefined."
+    if: Boolean, 
+    "Unique name"
+    label: String
+  ) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"Directs the executor to stream plural fields when the `if` argument is true or undefined."
+directive @stream(
+    "Stream when true or undefined."
+    if: Boolean, 
+    "Number of items to return immediately"
+    initialCount: Int!, 
+    "Unique name"
+    label: String
+  ) on FIELD
+
 directive @example on FIELD_DEFINITION
 
 directive @moreComplex(arg1: String = "default", arg2: Int) on FIELD_DEFINITION | INPUT_FIELD_DEFINITION
@@ -1230,6 +1284,24 @@ directive @skip(
     "Skipped when true."
     if: Boolean!
   ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"Directs the executor to defer this fragment when the `if` argument is true or undefined."
+directive @defer(
+    "Deferred when true or undefined."
+    if: Boolean, 
+    "Unique name"
+    label: String
+  ) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"Directs the executor to stream plural fields when the `if` argument is true or undefined."
+directive @stream(
+    "Stream when true or undefined."
+    if: Boolean, 
+    "Number of items to return immediately"
+    initialCount: Int!, 
+    "Unique name"
+    label: String
+  ) on FIELD
 
 directive @example on FIELD_DEFINITION
 
@@ -1364,6 +1436,24 @@ directive @skip(
     "Skipped when true."
     if: Boolean!
   ) on FIELD | FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"Directs the executor to defer this fragment when the `if` argument is true or undefined."
+directive @defer(
+    "Deferred when true or undefined."
+    if: Boolean, 
+    "Unique name"
+    label: String
+  ) on FRAGMENT_SPREAD | INLINE_FRAGMENT
+
+"Directs the executor to stream plural fields when the `if` argument is true or undefined."
+directive @stream(
+    "Stream when true or undefined."
+    if: Boolean, 
+    "Number of items to return immediately"
+    initialCount: Int!, 
+    "Unique name"
+    label: String
+  ) on FIELD
 
 directive @directive1 on SCALAR
 

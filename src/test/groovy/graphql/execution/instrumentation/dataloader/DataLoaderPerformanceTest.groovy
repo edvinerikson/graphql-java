@@ -1,8 +1,9 @@
 package graphql.execution.instrumentation.dataloader
 
-import graphql.DeferredExecutionResult
+
 import graphql.ExecutionInput
 import graphql.GraphQL
+import graphql.execution.PatchExecutionResult
 import graphql.execution.defer.CapturingSubscriber
 import graphql.execution.instrumentation.Instrumentation
 import org.awaitility.Awaitility
@@ -103,8 +104,8 @@ class DataLoaderPerformanceTest extends Specification {
         ExecutionInput executionInput = ExecutionInput.newExecutionInput().query(deferredQuery).dataLoaderRegistry(dataLoaderRegistry).build()
         def result = graphQL.execute(executionInput)
 
-        Map<Object, Object> extensions = result.getExtensions()
-        Publisher<DeferredExecutionResult> deferredResultStream = (Publisher<DeferredExecutionResult>) extensions.get(GraphQL.DEFERRED_RESULTS)
+
+        Publisher<PatchExecutionResult> deferredResultStream = result.patchPublisher
 
         def subscriber = new CapturingSubscriber()
         subscriber.subscribeTo(deferredResultStream)
@@ -130,8 +131,7 @@ class DataLoaderPerformanceTest extends Specification {
         ExecutionInput executionInput = ExecutionInput.newExecutionInput().query(expensiveDeferredQuery).dataLoaderRegistry(dataLoaderRegistry).build()
         def result = graphQL.execute(executionInput)
 
-        Map<Object, Object> extensions = result.getExtensions()
-        Publisher<DeferredExecutionResult> deferredResultStream = (Publisher<DeferredExecutionResult>) extensions.get(GraphQL.DEFERRED_RESULTS)
+        Publisher<PatchExecutionResult> deferredResultStream = result.patchPublisher;
 
         def subscriber = new CapturingSubscriber()
         subscriber.subscribeTo(deferredResultStream)
@@ -142,11 +142,11 @@ class DataLoaderPerformanceTest extends Specification {
 
         result.data == expectedInitialExpensiveDeferredData
 
-        subscriber.executionResultData == expectedExpensiveDeferredData
+        subscriber.executionResultData.sort(false) == expectedExpensiveDeferredData
 
         //
         //  with deferred results, we don't achieve the same efficiency
         batchCompareDataFetchers.departmentsForShopsBatchLoaderCounter.get() == 3
-        batchCompareDataFetchers.productsForDepartmentsBatchLoaderCounter.get() == 3
+        batchCompareDataFetchers.productsForDepartmentsBatchLoaderCounter.get() == 9
     }
 }

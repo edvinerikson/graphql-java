@@ -105,6 +105,7 @@ class ExecutionStrategyTest extends Specification {
 
         builder.operationDefinition(operation)
         builder.executionId(ExecutionId.generate())
+        builder.dispatcher(new Dispatcher());
 
         def executionContext = builder.build()
         def result = new Object()

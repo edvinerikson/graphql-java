@@ -1,6 +1,9 @@
 package graphql;
 
 
+import graphql.execution.PatchExecutionResult;
+import org.reactivestreams.Publisher;
+
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -18,31 +21,32 @@ public class ExecutionResultImpl implements ExecutionResult {
     private final transient Map<Object, Object> extensions;
     private final transient boolean dataPresent;
     private final Boolean hasNext;
+    private final Publisher<PatchExecutionResult> patchPublisher;
 
     public ExecutionResultImpl(GraphQLError error) {
-        this(false, null, Collections.singletonList(error), null, null);
+        this(false, null, Collections.singletonList(error), null, null, null);
     }
 
     public ExecutionResultImpl(List<? extends GraphQLError> errors) {
-        this(false, null, errors, null, null);
+        this(false, null, errors, null, null, null);
     }
 
     public ExecutionResultImpl(Object data, List<? extends GraphQLError> errors) {
-        this(true, data, errors, null, null);
+        this(true, data, errors, null, null, null);
     }
     public ExecutionResultImpl(Object data, List<? extends GraphQLError> errors, Boolean hasNext) {
-        this(true, data, errors, null, hasNext);
+        this(true, data, errors, null, hasNext, null);
     }
 
     public ExecutionResultImpl(Object data, List<? extends GraphQLError> errors, Map<Object, Object> extensions) {
-        this(true, data, errors, extensions, null);
+        this(true, data, errors, extensions, null, null);
     }
 
     public ExecutionResultImpl(ExecutionResultImpl other) {
-        this(other.dataPresent, other.data, other.errors, other.extensions, other.hasNext);
+        this(other.dataPresent, other.data, other.errors, other.extensions, other.hasNext, other.patchPublisher);
     }
 
-    private ExecutionResultImpl(boolean dataPresent, Object data, List<? extends GraphQLError> errors, Map<Object, Object> extensions, Boolean hasNext) {
+    private ExecutionResultImpl(boolean dataPresent, Object data, List<? extends GraphQLError> errors, Map<Object, Object> extensions, Boolean hasNext, Publisher<PatchExecutionResult> patchPublisher) {
         this.dataPresent = dataPresent;
         this.data = data;
 
@@ -54,6 +58,7 @@ public class ExecutionResultImpl implements ExecutionResult {
 
         this.extensions = extensions;
         this.hasNext = hasNext;
+        this.patchPublisher = patchPublisher;
     }
 
     public boolean isDataPresent() {
@@ -102,6 +107,11 @@ public class ExecutionResultImpl implements ExecutionResult {
         return hasNext;
     }
 
+    @Override
+    public Publisher<PatchExecutionResult> getPatchPublisher() {
+        return patchPublisher;
+    }
+
     private Object errorsToSpec(List<GraphQLError> errors) {
         return errors.stream().map(GraphQLError::toSpecification).collect(toList());
     }
@@ -133,6 +143,7 @@ public class ExecutionResultImpl implements ExecutionResult {
         private List<GraphQLError> errors = new ArrayList<>();
         private Map<Object, Object> extensions;
         private Boolean hasNext;
+        private Publisher<PatchExecutionResult> patchPublisher;
 
         public Builder from(ExecutionResult executionResult) {
             dataPresent = executionResult.isDataPresent();
@@ -140,6 +151,7 @@ public class ExecutionResultImpl implements ExecutionResult {
             errors = new ArrayList<>(executionResult.getErrors());
             extensions = executionResult.getExtensions();
             hasNext = executionResult.getHasNext();
+            patchPublisher = executionResult.getPatchPublisher();
             return this;
         }
 
@@ -180,8 +192,13 @@ public class ExecutionResultImpl implements ExecutionResult {
             return this;
         }
 
+        public Builder patchPublisher(Publisher<PatchExecutionResult> patchPublisher) {
+            this.patchPublisher = patchPublisher;
+            return this;
+        }
+
         public ExecutionResultImpl build() {
-            return new ExecutionResultImpl(dataPresent, data, errors, extensions, hasNext);
+            return new ExecutionResultImpl(dataPresent, data, errors, extensions, hasNext, patchPublisher);
         }
     }
 }

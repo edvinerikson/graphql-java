@@ -10,11 +10,9 @@ import java.util.*;
 public class MergedSelectionSet {
 
     private final Map<String, MergedField> subFields;
-    private final Set<DeferFragment> deferredFragments;
 
-    private MergedSelectionSet(Map<String, MergedField> subFields, Set<DeferFragment> deferredFragments) {
+    private MergedSelectionSet(Map<String, MergedField> subFields) {
         this.subFields = Assert.assertNotNull(subFields);
-        this.deferredFragments = Assert.assertNotNull(deferredFragments);
     }
 
     public Map<String, MergedField> getSubFields() {
@@ -45,17 +43,12 @@ public class MergedSelectionSet {
         return subFields.isEmpty();
     }
 
-    public Set<DeferFragment> getDeferredFragments() {
-        return deferredFragments;
-    }
-
     public static Builder newMergedSelectionSet() {
         return new Builder();
     }
 
     public static class Builder {
         private Map<String, MergedField> subFields = new LinkedHashMap<>();
-        private Set<DeferFragment> deferredFragments = new LinkedHashSet<>();
 
         private Builder() {
 
@@ -66,13 +59,8 @@ public class MergedSelectionSet {
             return this;
         }
 
-        public Builder deferredFragments(Set<DeferFragment> deferredFragments) {
-            this.deferredFragments = deferredFragments;
-            return this;
-        }
-
         public MergedSelectionSet build() {
-            return new MergedSelectionSet(subFields, deferredFragments);
+            return new MergedSelectionSet(subFields);
         }
 
     }

@@ -1,10 +1,10 @@
 package readme;
 
-import graphql.DeferredExecutionResult;
 import graphql.Directives;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.GraphQL;
+import graphql.execution.PatchExecutionResult;
 import graphql.schema.GraphQLSchema;
 import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
@@ -41,12 +41,12 @@ public class DeferredExamples {
         sendMultipartHttpResult(httpServletResponse, initialResult);
 
         Map<Object, Object> extensions = initialResult.getExtensions();
-        Publisher<DeferredExecutionResult> deferredResults = (Publisher<DeferredExecutionResult>) extensions.get(GraphQL.DEFERRED_RESULTS);
+        Publisher<PatchExecutionResult> deferredResults = initialResult.getPatchPublisher();
 
         //
         // you subscribe to the deferred results like any other reactive stream
         //
-        deferredResults.subscribe(new Subscriber<DeferredExecutionResult>() {
+        deferredResults.subscribe(new Subscriber<PatchExecutionResult>() {
 
             Subscription subscription;
 
@@ -59,7 +59,7 @@ public class DeferredExamples {
             }
 
             @Override
-            public void onNext(DeferredExecutionResult executionResult) {
+            public void onNext(PatchExecutionResult executionResult) {
                 //
                 // as each deferred result arrives, send it to where it needs to go
                 //
@@ -83,6 +83,9 @@ public class DeferredExamples {
     }
 
     private void handleError(HttpServletResponse httpServletResponse, Throwable t) {
+    }
+
+    private void sendMultipartHttpResult(HttpServletResponse httpServletResponse, PatchExecutionResult patch) {
     }
 
     private void sendMultipartHttpResult(HttpServletResponse httpServletResponse, ExecutionResult initialResult) {

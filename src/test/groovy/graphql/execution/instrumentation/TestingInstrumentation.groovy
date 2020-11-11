@@ -3,13 +3,14 @@ package graphql.execution.instrumentation
 import graphql.ExecutionInput
 import graphql.ExecutionResult
 import graphql.execution.ExecutionContext
-import graphql.execution.instrumentation.parameters.InstrumentationDeferredFieldParameters
+
 import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters
 import graphql.execution.instrumentation.parameters.InstrumentationFieldCompleteParameters
 import graphql.execution.instrumentation.parameters.InstrumentationFieldFetchParameters
 import graphql.execution.instrumentation.parameters.InstrumentationFieldParameters
+import graphql.execution.instrumentation.parameters.InstrumentationPatchParameters
 import graphql.execution.instrumentation.parameters.InstrumentationValidationParameters
 import graphql.language.Document
 import graphql.schema.DataFetcher
@@ -64,9 +65,9 @@ class TestingInstrumentation implements Instrumentation {
     }
 
     @Override
-    DeferredFieldInstrumentationContext beginDeferredField(InstrumentationDeferredFieldParameters parameters) {
-        assert parameters.getInstrumentationState() == instrumentationState
-        return new TestingInstrumentContext("deferred-field-$parameters.field.name", executionList, throwableList)
+    PatchInstrumentationContext beginPatch(InstrumentationPatchParameters parameters) {
+        assert parameters.getInstrumentationState() == instrumentationState;
+        return new TestingInstrumentContext("patch", executionList, throwableList)
     }
 
     @Override

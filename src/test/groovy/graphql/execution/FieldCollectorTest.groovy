@@ -36,7 +36,7 @@ class FieldCollectorTest extends Specification {
         def bar2 = field.selectionSet.selections[1]
 
         when:
-        def result = fieldCollector.collectFields(fieldCollectorParameters, mergedField(field))
+        def result = fieldCollector.collectFields(fieldCollectorParameters, mergedField(field)).fields
 
         then:
         result.getSubField('bar1').getFields() == [bar1]
@@ -69,7 +69,7 @@ class FieldCollectorTest extends Specification {
         def interfaceField = inlineFragment.selectionSet.selections[0]
 
         when:
-        def result = fieldCollector.collectFields(fieldCollectorParameters, mergedField(bar1Field))
+        def result = fieldCollector.collectFields(fieldCollectorParameters, mergedField(bar1Field)).fields
 
         then:
         result.getSubField('fieldOnInterface').getFields() == [interfaceField]

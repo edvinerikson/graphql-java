@@ -304,7 +304,7 @@ public class DataFetchingFieldSelectionSetImpl implements DataFetchingFieldSelec
                 .variables(variables)
                 .build();
 
-        MergedSelectionSet collectedFields = fieldCollector.collectFields(parameters, fieldList);
+        MergedSelectionSet collectedFields = fieldCollector.collectFields(parameters, fieldList).getFields();
         for (Map.Entry<String, MergedField> entry : collectedFields.getSubFields().entrySet()) {
             String fieldName = mkFieldName(fieldPrefix, entry.getKey());
             MergedField collectedFieldList = entry.getValue();

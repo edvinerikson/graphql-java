@@ -81,7 +81,7 @@ public class ExecutionStrategyUtil {
                 .variables(executionContext.getVariables())
                 .build();
         MergedSelectionSet subFields = fieldCollector.collectFields(collectorParameters,
-                executionInfo.getField());
+                executionInfo.getField()).getFields();
 
         // it is not really a new step but rather a refinement
         ExecutionStepInfo newExecutionStepInfoWithResolvedType = executionInfo.changeTypeWithPreservedNonNull(resolvedObjectType);

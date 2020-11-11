@@ -4,12 +4,14 @@ import graphql.Assert;
 import graphql.ExecutionResult;
 import graphql.Internal;
 import graphql.execution.FieldValueInfo;
+import graphql.execution.MergedField;
+import graphql.execution.PatchExecutionResult;
 import graphql.execution.ResultPath;
-import graphql.execution.instrumentation.ExecutionStrategyInstrumentationContext;
-import graphql.execution.instrumentation.InstrumentationContext;
-import graphql.execution.instrumentation.InstrumentationState;
+import graphql.execution.instrumentation.*;
+
 import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters;
 import graphql.execution.instrumentation.parameters.InstrumentationFieldFetchParameters;
+import graphql.execution.instrumentation.parameters.InstrumentationPatchParameters;
 import org.dataloader.DataLoaderRegistry;
 import org.slf4j.Logger;
 
@@ -188,6 +190,30 @@ public class FieldLevelTrackingApproach {
         return result;
     }
 
+    PatchInstrumentationContext beginPatch(InstrumentationPatchParameters parameters) {
+        CallStack callStack = parameters.getInstrumentationState();
+        int parentLevel = parameters.getExecutionStepInfo().getPath().getLevel();
+        int curLevel = parentLevel + 1;
+        synchronized (callStack) {
+            dispatch();
+            if (curLevel == 1) {
+                callStack.clearAndMarkCurrentLevelAsReady(1);
+            }
+            callStack.increaseExpectedStrategyCalls(curLevel, 1);
+        }
+
+        return new PatchInstrumentationContext() {
+            @Override
+            public void onDispatched(CompletableFuture<PatchExecutionResult> result) {
+
+            }
+
+            @Override
+            public void onCompleted(PatchExecutionResult result, Throwable t) {
+
+            }
+        };
+    }
 
     public InstrumentationContext<Object> beginFieldFetch(InstrumentationFieldFetchParameters parameters) {
         CallStack callStack = parameters.getInstrumentationState();

@@ -54,6 +54,7 @@ public class ExecutionContext {
     private final Locale locale;
     private final ValueUnboxer valueUnboxer;
     private final ExecutionInput executionInput;
+    private final Dispatcher dispatcher;
 
     ExecutionContext(ExecutionContextBuilder builder) {
         this.graphQLSchema = builder.graphQLSchema;
@@ -76,6 +77,7 @@ public class ExecutionContext {
         this.errors.addAll(builder.errors);
         this.localContext = builder.localContext;
         this.executionInput = builder.executionInput;
+        this.dispatcher = builder.dispatcher;
     }
 
 
@@ -201,6 +203,10 @@ public class ExecutionContext {
 
     public ExecutionStrategy getSubscriptionStrategy() {
         return subscriptionStrategy;
+    }
+
+    public Dispatcher getDispatcher() {
+        return dispatcher;
     }
 
     public Supplier<NormalizedQueryTree> getNormalizedQueryTree() {

@@ -4,26 +4,14 @@ import com.google.common.collect.ImmutableList;
 import graphql.ExecutionInput;
 import graphql.ExecutionResult;
 import graphql.PublicApi;
-import graphql.execution.Async;
-import graphql.execution.ExecutionContext;
-import graphql.execution.FieldValueInfo;
-import graphql.execution.instrumentation.parameters.InstrumentationCreateStateParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldCompleteParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldFetchParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationValidationParameters;
+import graphql.execution.*;
+import graphql.execution.instrumentation.parameters.*;
 import graphql.language.Document;
 import graphql.schema.DataFetcher;
 import graphql.schema.GraphQLSchema;
 import graphql.validation.ValidationError;
 
-import java.util.Arrays;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 import static graphql.Assert.assertNotNull;
@@ -109,6 +97,13 @@ public class ChainedInstrumentation implements Instrumentation {
         }));
     }
 
+    @Override
+    public PatchInstrumentationContext beginPatch(InstrumentationPatchParameters parameters) {
+        return new ChainedPatchInstrumentationContext(map(instrumentations, instrumentation -> {
+            InstrumentationState state = getState(instrumentation, parameters.getInstrumentationState());
+            return instrumentation.beginPatch(parameters.withNewState(state));
+        }));
+    }
 
     @Override
     public InstrumentationContext<ExecutionResult> beginSubscribedFieldEvent(InstrumentationFieldParameters parameters) {
@@ -261,8 +256,24 @@ public class ChainedInstrumentation implements Instrumentation {
         public void onFieldValuesInfo(List<FieldValueInfo> fieldValueInfoList) {
             contexts.forEach(context -> context.onFieldValuesInfo(fieldValueInfoList));
         }
-
     }
 
+    private static class ChainedPatchInstrumentationContext implements PatchInstrumentationContext {
+        private final List<PatchInstrumentationContext> contexts;
+
+        ChainedPatchInstrumentationContext(List<PatchInstrumentationContext> contexts) {
+            this.contexts = ImmutableList.copyOf(contexts);
+        }
+
+        @Override
+        public void onDispatched(CompletableFuture<PatchExecutionResult> result) {
+            contexts.forEach(context -> context.onDispatched(result));
+        }
+
+        @Override
+        public void onCompleted(PatchExecutionResult result, Throwable t) {
+            contexts.forEach(context -> context.onCompleted(result, t));
+        }
+    }
 }
 

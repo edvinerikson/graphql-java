@@ -440,7 +440,7 @@ public class BatchedExecutionStrategy extends ExecutionStrategy {
                 .variables(executionContext.getVariables())
                 .build();
 
-        return fieldCollector.collectFields(collectorParameters, fields);
+        return fieldCollector.collectFields(collectorParameters, fields).getFields();
     }
 
     private GraphQLObjectType getGraphQLObjectType(ExecutionContext executionContext, MergedField field, GraphQLType fieldType, Object value, Map<String, Object> argumentValues) {

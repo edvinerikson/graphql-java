@@ -6,8 +6,7 @@ import graphql.language.DirectiveDefinition;
 import graphql.language.StringValue;
 import graphql.schema.GraphQLDirective;
 
-import static graphql.Scalars.GraphQLBoolean;
-import static graphql.Scalars.GraphQLString;
+import static graphql.Scalars.*;
 import static graphql.introspection.Introspection.DirectiveLocation.ENUM_VALUE;
 import static graphql.introspection.Introspection.DirectiveLocation.FIELD;
 import static graphql.introspection.Introspection.DirectiveLocation.FIELD_DEFINITION;
@@ -26,7 +25,6 @@ import static graphql.schema.GraphQLNonNull.nonNull;
  */
 @PublicApi
 public class Directives {
-
     private static final String SPECIFIED_BY = "specifiedBy";
     private static final String DEPRECATED = "deprecated";
 
@@ -62,6 +60,39 @@ public class Directives {
                                 .build())
                 .build();
     }
+
+    public static final GraphQLDirective DeferDirective = GraphQLDirective.newDirective()
+            .name("defer")
+            .description("Directs the executor to defer this fragment when the `if` argument is true or undefined.")
+            .argument(newArgument()
+                    .name("if")
+                    .type(GraphQLBoolean)
+                    .description("Deferred when true or undefined."))
+            .argument(newArgument()
+                    .name("label")
+                    .type(GraphQLString)
+                    .description("Unique name"))
+            .validLocations(FRAGMENT_SPREAD, INLINE_FRAGMENT)
+            .build();
+
+    public static final GraphQLDirective StreamDirective = GraphQLDirective.newDirective()
+            .name("stream")
+            .description("Directs the executor to stream plural fields when the `if` argument is true or undefined.")
+            .argument(newArgument()
+                    .name("if")
+                    .type(GraphQLBoolean)
+                    .description("Stream when true or undefined."))
+            .argument(newArgument()
+                    .name("label")
+                    .type(GraphQLString)
+                    .description("Unique name"))
+            .argument(newArgument()
+                    .name("initialCount")
+                    .type(nonNull(GraphQLInt))
+                    .description("Number of items to return immediately"))
+            .validLocations(FIELD)
+            .build();
+
     public static final GraphQLDirective IncludeDirective = GraphQLDirective.newDirective()
             .name("include")
             .description("Directs the executor to include this field or fragment only when the `if` argument is true")
@@ -81,7 +112,6 @@ public class Directives {
                     .description("Skipped when true."))
             .validLocations(FRAGMENT_SPREAD, INLINE_FRAGMENT, FIELD)
             .build();
-
 
     /**
      * The "deprecated" directive is special and is always available in a graphql schema

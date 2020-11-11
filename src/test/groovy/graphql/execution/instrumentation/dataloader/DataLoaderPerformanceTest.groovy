@@ -3,12 +3,22 @@ package graphql.execution.instrumentation.dataloader
 
 import graphql.ExecutionInput
 import graphql.GraphQL
+import graphql.execution.PatchExecutionResult
+import graphql.execution.defer.CapturingSubscriber
 import graphql.execution.instrumentation.Instrumentation
+import org.awaitility.Awaitility
 import org.dataloader.DataLoaderRegistry
+import org.reactivestreams.Publisher
 import spock.lang.Specification
 
+import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.expectedInitialDeferredData
+import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.expectedInitialExpensiveDeferredData
+import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.getDeferredQuery
 import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.getExpectedData
 import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.getExpectedExpensiveData
+import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.getExpectedExpensiveDeferredData
+import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.getExpectedListOfDeferredData
+import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.getExpensiveDeferredQuery
 import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.getExpensiveQuery
 import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.getQuery
 
@@ -87,4 +97,56 @@ class DataLoaderPerformanceTest extends Specification {
         batchCompareDataFetchers.productsForDepartmentsBatchLoaderCounter.get() <= 2
     }
 
+    def "data loader will work with deferred queries"() {
+
+        when:
+
+        ExecutionInput executionInput = ExecutionInput.newExecutionInput().query(deferredQuery).dataLoaderRegistry(dataLoaderRegistry).build()
+        def result = graphQL.execute(executionInput)
+
+
+        Publisher<PatchExecutionResult> deferredResultStream = result.patchPublisher
+
+        def subscriber = new CapturingSubscriber()
+        subscriber.subscribeTo(deferredResultStream)
+        Awaitility.await().untilTrue(subscriber.finished)
+
+
+        then:
+
+        result.data == expectedInitialDeferredData
+
+        subscriber.executionResultData == expectedListOfDeferredData
+
+        //
+        //  with deferred results, we don't achieve the same efficiency
+        batchCompareDataFetchers.departmentsForShopsBatchLoaderCounter.get() == 3
+        batchCompareDataFetchers.productsForDepartmentsBatchLoaderCounter.get() == 3
+    }
+
+    def "data loader will work with deferred queries on multiple levels deep"() {
+
+        when:
+
+        ExecutionInput executionInput = ExecutionInput.newExecutionInput().query(expensiveDeferredQuery).dataLoaderRegistry(dataLoaderRegistry).build()
+        def result = graphQL.execute(executionInput)
+
+        Publisher<PatchExecutionResult> deferredResultStream = result.patchPublisher;
+
+        def subscriber = new CapturingSubscriber()
+        subscriber.subscribeTo(deferredResultStream)
+        Awaitility.await().untilTrue(subscriber.finished)
+
+
+        then:
+
+        result.data == expectedInitialExpensiveDeferredData
+
+        subscriber.executionResultData.sort(false) == expectedExpensiveDeferredData
+
+        //
+        //  with deferred results, we don't achieve the same efficiency
+        batchCompareDataFetchers.departmentsForShopsBatchLoaderCounter.get() == 3
+        batchCompareDataFetchers.productsForDepartmentsBatchLoaderCounter.get() == 9
+    }
 }

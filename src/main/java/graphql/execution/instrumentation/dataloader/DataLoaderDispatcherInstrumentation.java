@@ -6,16 +6,9 @@ import graphql.PublicApi;
 import graphql.execution.AsyncExecutionStrategy;
 import graphql.execution.ExecutionContext;
 import graphql.execution.ExecutionStrategy;
-import graphql.execution.instrumentation.ExecutionStrategyInstrumentationContext;
-import graphql.execution.instrumentation.InstrumentationContext;
-import graphql.execution.instrumentation.InstrumentationState;
-import graphql.execution.instrumentation.SimpleInstrumentation;
-import graphql.execution.instrumentation.SimpleInstrumentationContext;
-import graphql.execution.instrumentation.parameters.InstrumentationCreateStateParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecuteOperationParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationExecutionStrategyParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldFetchParameters;
+import graphql.execution.PatchExecutionResult;
+import graphql.execution.instrumentation.*;
+import graphql.execution.instrumentation.parameters.*;
 import graphql.language.OperationDefinition;
 import graphql.schema.DataFetcher;
 import org.dataloader.DataLoader;
@@ -143,6 +136,26 @@ public class DataLoaderDispatcherInstrumentation extends SimpleInstrumentation {
         return state.getApproach().beginExecutionStrategy(parameters.withNewState(state.getState()));
     }
 
+    @Override
+    public PatchInstrumentationContext beginPatch(InstrumentationPatchParameters parameters) {
+        DataLoaderDispatcherInstrumentationState state = parameters.getInstrumentationState();
+        //
+        // if there are no data loaders, there is nothing to do
+        //
+        if (state.hasNoDataLoaders()) {
+            return new PatchInstrumentationContext() {
+                @Override
+                public void onDispatched(CompletableFuture<PatchExecutionResult> result) {
+                }
+
+                @Override
+                public void onCompleted(PatchExecutionResult result, Throwable t) {
+                }
+            };
+
+        }
+        return state.getApproach().beginPatch(parameters.withNewState(state.getState()));
+    }
 
     @Override
     public InstrumentationContext<Object> beginFieldFetch(InstrumentationFieldFetchParameters parameters) {

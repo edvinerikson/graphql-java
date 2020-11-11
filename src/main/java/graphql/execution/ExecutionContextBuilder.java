@@ -46,6 +46,7 @@ public class ExecutionContextBuilder {
     ValueUnboxer valueUnboxer;
     Object localContext;
     ExecutionInput executionInput;
+    Dispatcher dispatcher;
 
     /**
      * @return a new builder of {@link graphql.execution.ExecutionContext}s
@@ -91,6 +92,7 @@ public class ExecutionContextBuilder {
         errors = ImmutableList.copyOf(other.getErrors());
         valueUnboxer = other.getValueUnboxer();
         executionInput = other.getExecutionInput();
+        dispatcher = other.getDispatcher();
     }
 
     public ExecutionContextBuilder instrumentation(Instrumentation instrumentation) {
@@ -190,6 +192,11 @@ public class ExecutionContextBuilder {
 
     public ExecutionContextBuilder resetErrors() {
         this.errors = emptyList();
+        return this;
+    }
+
+    public ExecutionContextBuilder dispatcher(Dispatcher dispatcher) {
+        this.dispatcher = dispatcher;
         return this;
     }
 

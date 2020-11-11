@@ -1,18 +1,12 @@
-package graphql;
+package graphql.execution;
 
-
-import graphql.execution.PatchExecutionResult;
-import org.reactivestreams.Publisher;
+import graphql.ExecutionResult;
+import graphql.GraphQLError;
 
 import java.util.List;
 import java.util.Map;
 
-/**
- * This simple value class represents the result of performing a graphql query.
- */
-@PublicApi
-@SuppressWarnings("TypeParameterUnusedInFormals")
-public interface ExecutionResult {
+public interface PatchExecutionResult {
 
     /**
      * @return the errors that occurred during execution or empty list if there is none
@@ -60,6 +54,6 @@ public interface ExecutionResult {
 
     Boolean getHasNext();
 
-
-    Publisher<PatchExecutionResult> getPatchPublisher();
+    String getLabel();
+    ResultPath getPath();
 }

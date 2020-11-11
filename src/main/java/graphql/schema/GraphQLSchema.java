@@ -395,7 +395,10 @@ public class GraphQLSchema {
 
         // we default these in
         private Set<GraphQLDirective> additionalDirectives = new LinkedHashSet<>(
-                asList(Directives.IncludeDirective, Directives.SkipDirective)
+                asList(Directives.IncludeDirective,
+                        Directives.SkipDirective,
+                        Directives.DeferDirective,
+                        Directives.StreamDirective)
         );
         private Map<String, GraphQLDirective> schemaDirectives = new LinkedHashMap<>();
 

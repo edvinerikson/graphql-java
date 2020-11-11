@@ -14,9 +14,8 @@ import graphql.execution.directives.QueryDirectives;
 import graphql.execution.directives.QueryDirectivesImpl;
 import graphql.execution.instrumentation.Instrumentation;
 import graphql.execution.instrumentation.InstrumentationContext;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldCompleteParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldFetchParameters;
-import graphql.execution.instrumentation.parameters.InstrumentationFieldParameters;
+import graphql.execution.instrumentation.InstrumentationState;
+import graphql.execution.instrumentation.parameters.*;
 import graphql.introspection.Introspection;
 import graphql.language.Argument;
 import graphql.language.Field;
@@ -344,7 +343,6 @@ public abstract class ExecutionStrategy {
             handlerResult = new SimpleDataFetcherExceptionHandler().onException(handlerParameters);
         }
         handlerResult.getErrors().forEach(executionContext::addError);
-
     }
 
     /**
@@ -451,7 +449,6 @@ public abstract class ExecutionStrategy {
         UnresolvedTypeError error = new UnresolvedTypeError(parameters.getPath(), parameters.getExecutionStepInfo(), e);
         logNotSafe.warn(error.getMessage(), e);
         context.addError(error);
-
     }
 
     private CompletableFuture<ExecutionResult> completeValueForNull(ExecutionStrategyParameters parameters) {
@@ -493,6 +490,8 @@ public abstract class ExecutionStrategy {
      * @return a {@link FieldValueInfo}
      */
     protected FieldValueInfo completeValueForList(ExecutionContext executionContext, ExecutionStrategyParameters parameters, Iterable<Object> iterableValues) {
+
+
 
         OptionalInt size = FpKit.toSize(iterableValues);
         ExecutionStepInfo executionStepInfo = parameters.getExecutionStepInfo();
@@ -629,21 +628,45 @@ public abstract class ExecutionStrategy {
                 .variables(executionContext.getVariables())
                 .build();
 
-        MergedSelectionSet subFields = fieldCollector.collectFields(collectorParameters, parameters.getField());
+        FieldsAndPatches fieldsAndPatches = fieldCollector.collectFields(collectorParameters, parameters.getField());
 
         ExecutionStepInfo newExecutionStepInfo = executionStepInfo.changeTypeWithPreservedNonNull(resolvedObjectType);
         NonNullableFieldValidator nonNullableFieldValidator = new NonNullableFieldValidator(executionContext, newExecutionStepInfo);
 
         ExecutionStrategyParameters newParameters = parameters.transform(builder ->
                 builder.executionStepInfo(newExecutionStepInfo)
-                        .fields(subFields)
+                        .fields(fieldsAndPatches.getFields())
                         .nonNullFieldValidator(nonNullableFieldValidator)
                         .source(result)
         );
-
+        Dispatcher dispatcher = executionContext.getDispatcher();
+        dispatcher.increaseExpectedPayloads(fieldsAndPatches.getPatches().size());
         // Calling this from the executionContext to ensure we shift back from mutation strategy to the query strategy.
+        CompletableFuture<ExecutionResult> futureResult = executionContext.getQueryStrategy().execute(executionContext, newParameters);
 
-        return executionContext.getQueryStrategy().execute(executionContext, newParameters);
+        Instrumentation instrumentation = executionContext.getInstrumentation();
+        for (Patch patch : fieldsAndPatches.getPatches()) {
+            ExecutionContext patchExecutionContext = executionContext.transform(ExecutionContextBuilder::resetErrors);
+            NonNullableFieldValidator patchNonNullableFieldValidator = new NonNullableFieldValidator(patchExecutionContext, newExecutionStepInfo);
+            ExecutionStrategyParameters patchParameters = newParameters.transform(builder -> {
+                builder
+                    .executionStepInfo(newExecutionStepInfo)
+                    .fields(patch.getFields())
+                    .nonNullFieldValidator(patchNonNullableFieldValidator)
+                    .source(result);
+            });
+            InstrumentationPatchParameters patchInstrumentationParams = new InstrumentationPatchParameters(executionContext, () -> newExecutionStepInfo, patch, patchExecutionContext.getInstrumentationState());
+            InstrumentationContext<PatchExecutionResult> patchCtx = instrumentation.beginPatch(patchInstrumentationParams);
+            CompletableFuture<ExecutionResult> futureExecutionResult;
+            try {
+                futureExecutionResult = patchExecutionContext.getQueryStrategy().execute(patchExecutionContext, patchParameters);
+            } catch (NonNullableFieldWasNullException e) {
+                futureExecutionResult = completedFuture(new ExecutionResultImpl(null, patchExecutionContext.getErrors()));
+            }
+            dispatcher.addFields(patch.getLabel(), newExecutionStepInfo.getPath(), futureExecutionResult, patchCtx);
+        }
+
+        return futureResult;
     }
 
     @SuppressWarnings("SameReturnValue")
@@ -651,8 +674,6 @@ public abstract class ExecutionStrategy {
         SerializationError error = new SerializationError(parameters.getPath(), e);
         logNotSafe.warn(error.getMessage(), e);
         context.addError(error);
-
-
         return null;
     }
 
@@ -687,7 +708,6 @@ public abstract class ExecutionStrategy {
         TypeMismatchError error = new TypeMismatchError(parameters.getPath(), parameters.getExecutionStepInfo().getUnwrappedNonNullType());
         logNotSafe.warn("{} got {}", error.getMessage(), result.getClass());
         context.addError(error);
-
     }
 
 

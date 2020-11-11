@@ -1,16 +1,6 @@
 package graphql;
 
-import graphql.execution.AbortExecutionException;
-import graphql.execution.AsyncExecutionStrategy;
-import graphql.execution.AsyncSerialExecutionStrategy;
-import graphql.execution.DataFetcherExceptionHandler;
-import graphql.execution.Execution;
-import graphql.execution.ExecutionId;
-import graphql.execution.ExecutionIdProvider;
-import graphql.execution.ExecutionStrategy;
-import graphql.execution.SimpleDataFetcherExceptionHandler;
-import graphql.execution.SubscriptionExecutionStrategy;
-import graphql.execution.ValueUnboxer;
+import graphql.execution.*;
 import graphql.execution.instrumentation.ChainedInstrumentation;
 import graphql.execution.instrumentation.DocumentAndVariables;
 import graphql.execution.instrumentation.Instrumentation;
@@ -24,10 +14,14 @@ import graphql.execution.instrumentation.parameters.InstrumentationValidationPar
 import graphql.execution.preparsed.NoOpPreparsedDocumentProvider;
 import graphql.execution.preparsed.PreparsedDocumentEntry;
 import graphql.execution.preparsed.PreparsedDocumentProvider;
+import graphql.execution.reactive.SingleSubscriberPublisher;
 import graphql.language.Document;
 import graphql.schema.GraphQLSchema;
 import graphql.util.LogKit;
 import graphql.validation.ValidationError;
+import org.reactivestreams.Publisher;
+import org.reactivestreams.Subscriber;
+import org.reactivestreams.Subscription;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -454,6 +448,53 @@ public class GraphQL {
         } catch (AbortExecutionException abortException) {
             return CompletableFuture.completedFuture(abortException.toExecutionResult());
         }
+    }
+
+    public Publisher<PatchExecutionResult> executePublisher(ExecutionInput executionInput) {
+        SingleSubscriberPublisher<PatchExecutionResult> emitter = new SingleSubscriberPublisher<>();
+        executeAsync(executionInput).whenComplete((executionResult, throwable) -> {
+            if (throwable != null) {
+                emitter.offerError(throwable);
+                return;
+            }
+            PatchExecutionResult patchResult = PatchExecutionResultImpl.newPatchExecutionResult()
+                    .data(executionResult.getData())
+                    .errors(executionResult.getErrors())
+                    .extensions(executionResult.getExtensions())
+                    .hasNext(executionResult.getHasNext())
+                    .build();
+            emitter.offer(patchResult);
+            Publisher<PatchExecutionResult> patchPublisher = executionResult.getPatchPublisher();
+            if (patchPublisher != null) {
+                patchPublisher.subscribe(new Subscriber<PatchExecutionResult>() {
+                    Subscription subscription;
+                    @Override
+                    public void onSubscribe(Subscription subscription) {
+                        this.subscription = subscription;
+                        subscription.request(1l);
+                    }
+
+                    @Override
+                    public void onNext(PatchExecutionResult patchExecutionResult) {
+                        emitter.offer(patchExecutionResult);
+                        subscription.request(1l);
+                    }
+
+                    @Override
+                    public void onError(Throwable t) {
+                        emitter.offerError(t);
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        emitter.noMoreData();
+                    }
+                });
+            } else {
+                emitter.noMoreData();
+            }
+        });
+        return emitter;
     }
 
     private ExecutionInput ensureInputHasId(ExecutionInput executionInput) {

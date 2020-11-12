@@ -21,6 +21,7 @@ import static graphql.execution.instrumentation.dataloader.DataLoaderPerformance
 import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.getExpensiveDeferredQuery
 import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.getExpensiveQuery
 import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.getQuery
+import static graphql.execution.instrumentation.dataloader.DataLoaderPerformanceData.streamingQuery
 
 class DataLoaderPerformanceTest extends Specification {
 
@@ -148,5 +149,28 @@ class DataLoaderPerformanceTest extends Specification {
         //  with deferred results, we don't achieve the same efficiency
         batchCompareDataFetchers.departmentsForShopsBatchLoaderCounter.get() == 3
         batchCompareDataFetchers.productsForDepartmentsBatchLoaderCounter.get() == 9
+    }
+
+    def "data loader will work with streaming lists"() {
+        when:
+
+        ExecutionInput executionInput = ExecutionInput.newExecutionInput().query(streamingQuery).dataLoaderRegistry(dataLoaderRegistry).build()
+        def result = graphQL.execute(executionInput)
+
+        Publisher<PatchExecutionResult> deferredResultStream = result.patchPublisher;
+
+        def subscriber = new CapturingSubscriber()
+        subscriber.subscribeTo(deferredResultStream)
+        Awaitility.await().untilTrue(subscriber.finished)
+
+
+        then:
+
+        result.data == [shops:[[id:"shop-1", name:"Shop 1", departments:[[name:"Department 1"], [name:"Department 2"], [name:"Department 3"]]]]]
+
+        subscriber.executionResultData.sort(false) == [[id:"shop-2", name:"Shop 2", departments:[[name:"Department 4"], [name:"Department 5"], [name:"Department 6"]]], [id:"shop-3", name:"Shop 3", departments:[[name:"Department 7"], [name:"Department 8"], [name:"Department 9"]]]]
+
+        batchCompareDataFetchers.departmentsForShopsBatchLoaderCounter.get() == 2
+
     }
 }

@@ -626,5 +626,49 @@ class OverlappingFieldsCanBeMergedTest extends Specification {
 
     }
 
+    def "stream with same arguments"() {
+        given:
+        def query = """
+            query {
+                ... on Query {
+                    services @stream(initialCount: 1)
+                }
+                services @stream(initialCount: 1)
+            }
+"""
+        def schema = TestUtil.schema("""
+    type Query {
+      services: [String]
+    }
+""")
+        when:
+        traverse(query, schema)
+
+        then:
+        errorCollector.getErrors().size() == 0
+    }
+
+    def "stream with differing arguments"() {
+        given:
+        def query = """
+            query {
+                ... on Query {
+                    services @stream(label: "hello")
+                }
+                services @stream(label: "helloworld")
+            }
+"""
+        def schema = TestUtil.schema("""
+    type Query {
+      services: [String]
+    }
+""")
+        when:
+        traverse(query, schema)
+
+        then:
+        errorCollector.getErrors().size() == 1
+        errorCollector.getErrors()[0].message == "Validation error of type FieldsConflict: services: they have differing stream directives"
+    }
 
 }

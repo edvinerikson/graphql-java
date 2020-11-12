@@ -34,34 +34,32 @@ public class Dispatcher {
         happenedPayloads += 1;
     }
 
-    void addFields(String label, ResultPath path, CompletableFuture<ExecutionResult> futureExecutionResult, InstrumentationContext<PatchExecutionResult> instrumentationContext) {
+    CompletableFuture<PatchExecutionResult> addFields(String label, ResultPath path, CompletableFuture<ExecutionResult> futureExecutionResult) {
         CompletableFuture<PatchExecutionResult> futureResult = new CompletableFuture<>();
-
-        futureResult.whenComplete(instrumentationContext::onCompleted);
         futureExecutionResult.whenComplete((dataResult, throwable) -> {
-                    increaseHappenedPayloads();
-                    boolean hasNext = hasNext();
-                    if (throwable == null) {
-                        PatchExecutionResult patch = PatchExecutionResultImpl.newPatchExecutionResult()
-                                .hasNext(hasNext)
-                                .label(label)
-                                .path(path)
-                                .data(dataResult.getData())
-                                .extensions(dataResult.getExtensions())
-                                .errors(dataResult.getErrors())
-                                .build();
-                        futureResult.complete(patch);
-                        publisher.offer(patch);
-                    } else {
-                        futureResult.completeExceptionally(throwable);
-                        publisher.offerError(throwable);
-                    }
+            increaseHappenedPayloads();
+            boolean hasNext = hasNext();
+            if (throwable == null) {
+                PatchExecutionResult patch = PatchExecutionResultImpl.newPatchExecutionResult()
+                        .hasNext(hasNext)
+                        .label(label)
+                        .path(path)
+                        .data(dataResult.getData())
+                        .extensions(dataResult.getExtensions())
+                        .errors(dataResult.getErrors())
+                        .build();
+                futureResult.complete(patch);
+                publisher.offer(patch);
+            } else {
+                futureResult.completeExceptionally(throwable);
+                publisher.offerError(throwable);
+            }
 
-                    if (!hasNext) {
-                        publisher.noMoreData();
-                    }
-                });
-        instrumentationContext.onDispatched(futureResult);
+            if (!hasNext) {
+                publisher.noMoreData();
+            }
+        });
+        return futureResult;
     }
 
     Publisher<PatchExecutionResult> getPublisher() {

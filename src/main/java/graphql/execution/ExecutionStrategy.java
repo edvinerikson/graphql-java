@@ -1,15 +1,7 @@
 package graphql.execution;
 
 import com.google.common.collect.ImmutableList;
-import graphql.ExecutionResult;
-import graphql.ExecutionResultImpl;
-import graphql.GraphQLError;
-import graphql.Internal;
-import graphql.PublicSpi;
-import graphql.SerializationError;
-import graphql.TrivialDataFetcher;
-import graphql.TypeMismatchError;
-import graphql.UnresolvedTypeError;
+import graphql.*;
 import graphql.execution.directives.QueryDirectives;
 import graphql.execution.directives.QueryDirectivesImpl;
 import graphql.execution.instrumentation.Instrumentation;
@@ -18,6 +10,8 @@ import graphql.execution.instrumentation.InstrumentationState;
 import graphql.execution.instrumentation.parameters.*;
 import graphql.introspection.Introspection;
 import graphql.language.Argument;
+import graphql.language.Directive;
+import graphql.language.DirectivesContainer;
 import graphql.language.Field;
 import graphql.normalized.NormalizedField;
 import graphql.normalized.NormalizedQueryTree;
@@ -504,6 +498,10 @@ public abstract class ExecutionStrategy {
         );
 
         List<FieldValueInfo> fieldValueInfos = new ArrayList<>(size.orElse(1));
+        List<Supplier<CompletableFuture<PatchExecutionResult>>> streamingListItems = new ArrayList<>();
+        Stream stream = getStreamValues(parameters.getField().getSingleField(), executionContext);
+        Dispatcher dispatcher = executionContext.getDispatcher();
+
         int index = 0;
         for (Object item : iterableValues) {
             ResultPath indexedPath = parameters.getPath().segment(index);
@@ -524,8 +522,36 @@ public abstract class ExecutionStrategy {
                             .path(indexedPath)
                             .source(value.getFetchedValue())
             );
-            fieldValueInfos.add(completeValue(executionContext, newParameters));
+            FieldValueInfo fieldValueInfo = completeValue(executionContext, newParameters);
+            if (stream != null && index >= stream.getInitialCount()) {
+                CompletableFuture<ExecutionResult> overallResult = new CompletableFuture<>();
+                InstrumentationPatchParameters patchInstrumentationParams = new InstrumentationPatchParameters(executionContext, () -> stepInfoForListElement, executionContext.getInstrumentationState());
+                InstrumentationContext<PatchExecutionResult> patchCtx = instrumentation.beginPatch(patchInstrumentationParams);
+
+                fieldValueInfo.getFieldValue().whenComplete((result, exception)-> {
+                    if (exception != null) {
+                        handleNonNullException(executionContext, overallResult, exception);
+                        return;
+                    }
+                    overallResult.complete(result);
+                });
+
+                streamingListItems.add(() -> {
+                    CompletableFuture<PatchExecutionResult> futurePatch = dispatcher.addFields(stream.getLabel(), indexedPath, overallResult);
+                    patchCtx.onDispatched(futurePatch);
+                    futurePatch.whenComplete(patchCtx::onCompleted);
+                    return futurePatch;
+                });
+            } else {
+                fieldValueInfos.add(fieldValueInfo);
+            }
+
             index++;
+        }
+
+        dispatcher.increaseExpectedPayloads(streamingListItems.size());
+        for (Supplier<CompletableFuture<PatchExecutionResult>> item : streamingListItems) {
+            item.get();
         }
 
         CompletableFuture<List<ExecutionResult>> resultsFuture = Async.each(fieldValueInfos, (item, i) -> item.getFieldValue());
@@ -552,6 +578,39 @@ public abstract class ExecutionStrategy {
                 .fieldValue(overallResult)
                 .fieldValueInfos(fieldValueInfos)
                 .build();
+    }
+
+    private Stream getStreamValues(DirectivesContainer<?> container, ExecutionContext executionContext) {
+        Directive streamDirective = container.getDirective(Directives.StreamDirective.getName());
+        if (streamDirective != null) {
+            Map<String, Object> arguments = valuesResolver.getArgumentValues(
+                    Directives.StreamDirective.getArguments(),
+                    streamDirective.getArguments(),
+                    executionContext.getVariables()
+            );
+            if ((Boolean)arguments.getOrDefault("if", true)) {
+                return new Stream((String) arguments.get("label"), (Integer) arguments.get("initialCount"));
+            }
+        }
+        return null;
+    }
+
+    private static class Stream {
+        private String label;
+        private Integer initialCount;
+
+        Stream(String label, Integer initialCount) {
+            this.label = label;
+            this.initialCount = initialCount;
+        }
+
+        public String getLabel() {
+            return label;
+        }
+
+        public Integer getInitialCount() {
+            return initialCount;
+        }
     }
 
     /**
@@ -655,7 +714,7 @@ public abstract class ExecutionStrategy {
                     .nonNullFieldValidator(patchNonNullableFieldValidator)
                     .source(result);
             });
-            InstrumentationPatchParameters patchInstrumentationParams = new InstrumentationPatchParameters(executionContext, () -> newExecutionStepInfo, patch, patchExecutionContext.getInstrumentationState());
+            InstrumentationPatchParameters patchInstrumentationParams = new InstrumentationPatchParameters(executionContext, () -> newExecutionStepInfo, patchExecutionContext.getInstrumentationState());
             InstrumentationContext<PatchExecutionResult> patchCtx = instrumentation.beginPatch(patchInstrumentationParams);
             CompletableFuture<ExecutionResult> futureExecutionResult;
             try {
@@ -663,7 +722,9 @@ public abstract class ExecutionStrategy {
             } catch (NonNullableFieldWasNullException e) {
                 futureExecutionResult = completedFuture(new ExecutionResultImpl(null, patchExecutionContext.getErrors()));
             }
-            dispatcher.addFields(patch.getLabel(), newExecutionStepInfo.getPath(), futureExecutionResult, patchCtx);
+            CompletableFuture<PatchExecutionResult> futurePatch = dispatcher.addFields(patch.getLabel(), newExecutionStepInfo.getPath(), futureExecutionResult);
+            patchCtx.onDispatched(futurePatch);
+            futurePatch.whenComplete(patchCtx::onCompleted);
         }
 
         return futureResult;

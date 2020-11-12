@@ -8,13 +8,12 @@ import graphql.execution.instrumentation.InstrumentationState;
 import java.util.function.Supplier;
 
 public class InstrumentationPatchParameters {
-    private final Patch patch;
     private final InstrumentationState instrumentationState;
     private final ExecutionContext executionContext;
     private final Supplier<ExecutionStepInfo> executionStepInfo;
 
-    public InstrumentationPatchParameters(ExecutionContext executionContext, Supplier<ExecutionStepInfo> executionStepInfo, Patch patch, InstrumentationState instrumentationState) {
-        this.patch = patch;
+    public InstrumentationPatchParameters(ExecutionContext executionContext, Supplier<ExecutionStepInfo> executionStepInfo, InstrumentationState instrumentationState) {
+
         this.instrumentationState = instrumentationState;
         this.executionContext = executionContext;
         this.executionStepInfo = executionStepInfo;
@@ -28,11 +27,7 @@ public class InstrumentationPatchParameters {
      * @return a new parameters object with the new state
      */
     public InstrumentationPatchParameters withNewState(InstrumentationState instrumentationState) {
-        return new InstrumentationPatchParameters(executionContext, executionStepInfo, patch, instrumentationState);
-    }
-
-    public Patch getPatch() {
-        return patch;
+        return new InstrumentationPatchParameters(executionContext, executionStepInfo, instrumentationState);
     }
 
     public ExecutionContext getExecutionContext() {

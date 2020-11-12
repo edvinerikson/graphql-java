@@ -200,7 +200,7 @@ public class Execution {
                     .nonNullFieldValidator(nonNullableFieldValidator)
                     .path(path)
                     .build();
-            InstrumentationPatchParameters patchInstrumentationParams = new InstrumentationPatchParameters(executionContext, () -> executionStepInfo, patch, patchExecutionContext.getInstrumentationState());
+            InstrumentationPatchParameters patchInstrumentationParams = new InstrumentationPatchParameters(executionContext, () -> executionStepInfo, patchExecutionContext.getInstrumentationState());
             InstrumentationContext<PatchExecutionResult> patchCtx = instrumentation.beginPatch(patchInstrumentationParams);
             CompletableFuture<ExecutionResult> futureExecutionResult;
             try {
@@ -209,7 +209,9 @@ public class Execution {
                 futureExecutionResult = completedFuture(new ExecutionResultImpl(null, patchExecutionContext.getErrors()));
             }
 
-            dispatcher.addFields(patch.getLabel(), path, futureExecutionResult, patchCtx);
+            CompletableFuture<PatchExecutionResult> futurePatch = dispatcher.addFields(patch.getLabel(), path, futureExecutionResult);
+            patchCtx.onDispatched(futurePatch);
+            futurePatch.whenComplete(patchCtx::onCompleted);
         }
 
         return patchSupport(executionContext, result);

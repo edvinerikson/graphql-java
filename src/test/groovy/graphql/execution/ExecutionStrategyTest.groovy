@@ -73,6 +73,7 @@ class ExecutionStrategyTest extends Specification {
                 .root("root")
                 .dataLoaderRegistry(new DataLoaderRegistry())
                 .locale(Locale.getDefault())
+                .dispatcher(new Dispatcher())
                 .valueUnboxer(ValueUnboxer.DEFAULT)
 
         new ExecutionContext(builder)

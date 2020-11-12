@@ -207,6 +207,18 @@ class DataLoaderPerformanceData {
             }
             """
 
+    static def streamingQuery = """
+        query {
+            shops @stream(initialCount: 1) {
+                id
+                name
+                departments {
+                    name
+                }
+            }
+        }
+    """
+
     static def expensiveDeferredQuery = """
             query { 
                 shops { 

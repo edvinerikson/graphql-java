@@ -1,17 +1,10 @@
 package graphql.validation.rules;
 
 
+import graphql.Directives;
 import graphql.Internal;
 import graphql.execution.TypeFromAST;
-import graphql.language.Argument;
-import graphql.language.AstComparator;
-import graphql.language.Field;
-import graphql.language.FragmentDefinition;
-import graphql.language.FragmentSpread;
-import graphql.language.InlineFragment;
-import graphql.language.Selection;
-import graphql.language.SelectionSet;
-import graphql.language.Value;
+import graphql.language.*;
 import graphql.schema.GraphQLFieldDefinition;
 import graphql.schema.GraphQLFieldsContainer;
 import graphql.schema.GraphQLObjectType;
@@ -166,6 +159,12 @@ public class OverlappingFieldsCanBeMerged extends AbstractRule {
                 return new Conflict(responseName, reason, fields);
             }
         }
+
+        if (!sameStreams(fieldA, fieldB)) {
+            String reason = format("%s: they have differing stream directives", responseName);
+            return new Conflict(responseName, reason, fieldA, fieldB);
+        }
+
         return null;
     }
 
@@ -235,6 +234,18 @@ public class OverlappingFieldsCanBeMerged extends AbstractRule {
         result.delete(result.length() - 2, result.length());
         result.append(")");
         return result.toString();
+    }
+
+    private boolean sameStreams(DirectivesContainer<?> a, DirectivesContainer<?> b) {
+        Directive streamA = a.getDirective(Directives.StreamDirective.getName());
+        Directive streamB = b.getDirective(Directives.StreamDirective.getName());
+
+        if (streamA == null && streamB == null) {
+            return true;
+        } else if (streamA != null && streamB != null) {
+            return sameArguments(streamA.getArguments(), streamB.getArguments());
+        }
+        return false;
     }
 
     @SuppressWarnings("SimplifiableIfStatement")
